@@ -1,0 +1,83 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: oklch(0.98 0.01 95);
+  --foreground: oklch(0.22 0.02 60);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.02 60);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.02 60);
+  --primary: oklch(0.42 0.09 155);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.96 0.015 90);
+  --secondary-foreground: oklch(0.42 0.09 155);
+  --muted: oklch(0.95 0.01 90);
+  --muted-foreground: oklch(0.5 0.02 60);
+  --accent: oklch(0.95 0.03 155);
+  --accent-foreground: oklch(0.42 0.09 155);
+  --destructive: oklch(0.58 0.22 27);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.9 0.015 90);
+  --input: oklch(0.9 0.02 250);
+  --ring: oklch(0.5 0.1 155);
+  --radius: 0.5rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+  --font-sans: var(--font-vazirmatn), sans-serif;
+}
+
+@layer base {
+  * { border-color: var(--color-border); }
+  body { background: var(--color-background); color: var(--color-foreground); }
+  button:not(:disabled), a, [role="button"], [onclick], select, summary, label[for] {
+    cursor: pointer;
+  }
+  button:disabled { cursor: not-allowed; }
+}
+
+.ck.ck-editor { width: 100%; }
+.ck.ck-editor__main > .ck-editor__editable {
+  min-height: 280px;
+  font-family: inherit;
+  line-height: 1.9;
+}
+.ck-content ul { list-style: disc; padding-inline-start: 1.5rem; }
+.ck-content ol { list-style: decimal; padding-inline-start: 1.5rem; }
+.blog-html h2, .blog-html h3 { font-weight: 800; margin: 1.2rem 0 0.5rem; }
+.blog-html h2 { font-size: 1.25rem; }
+.blog-html h3 { font-size: 1.1rem; }
+.blog-html p { margin-bottom: 0.9rem; line-height: 1.9; }
+.blog-html ul, .blog-html ol { margin: 0.75rem 0 1rem; padding-inline-start: 1.5rem; }
+.blog-html ul { list-style: disc; }
+.blog-html ol { list-style: decimal; }
+.blog-html a { color: var(--primary); text-decoration: underline; }
+.ck-content img, .blog-html img { max-width: 100%; height: auto; border-radius: 12px; display: inline-block; }
+.blog-html figure { margin: 1.1rem 0; }
+.blog-html figure.image { display: block; text-align: center; }
+.blog-html figcaption { margin-top: 0.4rem; font-size: 0.85rem; color: var(--muted-foreground); }
