@@ -10,9 +10,11 @@ import { getStoreBlogPosts } from "@/lib/get-store-blog";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const categories = await getStoreCategories().catch(() => []);
-  const featured = await getStoreProducts({ featured: true }).catch(() => []);
-  const blogPosts = await getStoreBlogPosts(3).catch(() => []);
+  const [categories, featured, blogPosts] = await Promise.all([
+    getStoreCategories().catch(() => []),
+    getStoreProducts({ featured: true }).catch(() => []),
+    getStoreBlogPosts(3).catch(() => []),
+  ]);
   const [main, ...side] = blogPosts;
 
   return (

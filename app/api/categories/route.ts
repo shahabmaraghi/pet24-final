@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { dbConnect, resetMongoCache } from "@/lib/db";
+import { dbConnect, withMongoRetry } from "@/lib/db";
 import Category from "@/lib/models/Category";
 import { requireAdmin } from "@/lib/api-helpers";
 import { categoryIdFromName } from "@/lib/category-id";
@@ -8,22 +8,18 @@ import { ACTIVE_CATEGORY_FILTER, serializeCategory } from "@/lib/store-category"
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const includeInactive = searchParams.get("all") === "true";
-  let lastError: unknown;
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      await dbConnect();
-      const items = await Category.collection
+  try {
+    const items = await withMongoRetry(async () =>
+      Category.collection
         .find(includeInactive ? {} : ACTIVE_CATEGORY_FILTER)
         .sort({ name: 1 })
-        .toArray();
-      return NextResponse.json(items.map(serializeCategory), { headers: { "Cache-Control": "no-store" } });
-    } catch (error) {
-      lastError = error;
-      await resetMongoCache();
-    }
+        .toArray()
+    );
+    return NextResponse.json(items.map(serializeCategory), { headers: { "Cache-Control": "no-store" } });
+  } catch (lastError) {
+    console.error("GET /api/categories failed", lastError);
+    return NextResponse.json([], { status: 200, headers: { "Cache-Control": "no-store" } });
   }
-  console.error("GET /api/categories failed", lastError);
-  return NextResponse.json([], { status: 200, headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(req: Request) {

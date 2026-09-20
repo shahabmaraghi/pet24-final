@@ -2,6 +2,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Menu, Search, User, ShoppingCart, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PawLogo } from "@/components/paw-logo";
@@ -15,6 +16,7 @@ const POPULAR_SEARCHES = ["غذای سگ", "خاک گربه", "اسباب باز
 
 export function SiteHeader() {
   const pathname = usePathname();
+  const { data: session } = useSession();
   const { count } = useCart();
   const [open, setOpen] = React.useState(false);
   const [searchFocused, setSearchFocused] = React.useState(false);
@@ -107,7 +109,7 @@ export function SiteHeader() {
           </div>
 
           <div className="order-4 mr-auto flex items-center gap-3 sm:order-3 sm:mr-0">
-            <Link href="/account" className="flex h-10 w-10 items-center justify-center rounded-xl border-[1.5px] hover:bg-accent" aria-label="حساب کاربری">
+            <Link href={session?.user ? "/account" : "/login"} className="flex h-10 w-10 items-center justify-center rounded-xl border-[1.5px] hover:bg-accent" aria-label="حساب کاربری">
               <User className="h-[19px] w-[19px] text-primary" strokeWidth={1.7} />
             </Link>
 

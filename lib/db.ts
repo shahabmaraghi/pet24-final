@@ -1,22 +1,34 @@
 import mongoose from "mongoose";
 
 const MONGODB_URI = process.env.MONGODB_URI as string;
+const CONNECT_TIMEOUT_MS = 8000;
 
 let cached = (global as any)._mongoose;
 if (!cached) cached = (global as any)._mongoose = { conn: null, promise: null };
 
+mongoose.set("bufferCommands", false);
+
 export async function resetMongoCache() {
   cached.conn = null;
   cached.promise = null;
+  if (mongoose.connection.readyState !== 0) {
+    await mongoose.disconnect().catch(() => {});
+  }
+}
+
+export function isMongoUnavailable(error: unknown) {
+  const name = String((error as { name?: string })?.name || "");
+  const message = String((error as { message?: string })?.message || error);
+  return /whitelist|ServerSelection|TLS|ECONNRESET|ENOTFOUND|ETIMEDOUT|ECONNREFUSED|MongoNetwork|MongoPoolCleared|not ready/i.test(`${name} ${message}`);
 }
 
 export function isTransientMongoError(error: unknown) {
   const name = String((error as { name?: string })?.name || "");
   const message = String((error as { message?: string })?.message || error);
-  return /ECONNRESET|ENOTFOUND|ETIMEDOUT|ECONNREFUSED|buffering timed out|TLS|MongoNetwork|MongoServerSelection|ExpiredSession|session that has ended/i.test(`${name} ${message}`);
+  return /ECONNRESET|ENOTFOUND|ETIMEDOUT|ECONNREFUSED|buffering timed out|TLS|MongoNetwork|MongoServerSelection|MongoPoolCleared|ExpiredSession|session that has ended|not ready|whitelist/i.test(`${name} ${message}`);
 }
 
-export async function withMongoRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
+export async function withMongoRetry<T>(fn: () => Promise<T>, attempts = 2): Promise<T> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
@@ -25,8 +37,8 @@ export async function withMongoRetry<T>(fn: () => Promise<T>, attempts = 3): Pro
     } catch (error) {
       lastError = error;
       if (!isTransientMongoError(error) || attempt === attempts) throw error;
-      resetMongoCache();
-      await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
+      await resetMongoCache();
+      await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
     }
   }
   throw lastError;
@@ -43,12 +55,15 @@ export async function dbConnect() {
     cached.promise = null;
   }
 
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       if (!cached.promise) {
         cached.promise = mongoose.connect(MONGODB_URI, {
-          serverSelectionTimeoutMS: 20000,
-          socketTimeoutMS: 45000,
+          serverSelectionTimeoutMS: CONNECT_TIMEOUT_MS,
+          connectTimeoutMS: CONNECT_TIMEOUT_MS,
+          socketTimeoutMS: 20000,
+          maxPoolSize: 8,
+          family: 4,
         });
       }
       cached.conn = await cached.promise;
@@ -59,8 +74,9 @@ export async function dbConnect() {
     } catch (error) {
       cached.conn = null;
       cached.promise = null;
-      if (attempt === 3) throw error;
-      await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+      if (attempt === 2) throw error;
+      await mongoose.disconnect().catch(() => {});
+      await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
     }
   }
 }

@@ -4,7 +4,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 
 // Admin/account panels own their full-page chrome (sidebar nav), so skip the shop header/footer there.
-const NO_CHROME_PREFIXES = ["/admin", "/account", "/blog"];
+const NO_CHROME_PREFIXES = ["/admin", "/account", "/blog", "/login", "/register"];
 
 export function SiteChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

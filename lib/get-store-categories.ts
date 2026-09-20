@@ -1,13 +1,14 @@
-import { dbConnect } from "@/lib/db";
+import { dbConnect, withMongoRetry } from "@/lib/db";
 import Category from "@/lib/models/Category";
 import { ACTIVE_CATEGORY_FILTER, serializeCategory, type StoreCategory } from "@/lib/store-category";
 
 export type { StoreCategory };
 
 export async function getStoreCategories(): Promise<StoreCategory[]> {
-  await dbConnect();
-  const items = await Category.collection.find(ACTIVE_CATEGORY_FILTER).sort({ name: 1 }).toArray();
-  return items.map(serializeCategory);
+  return withMongoRetry(async () => {
+    const items = await Category.collection.find(ACTIVE_CATEGORY_FILTER).sort({ name: 1 }).toArray();
+    return items.map(serializeCategory);
+  });
 }
 
 export async function getStoreCategory(id: string): Promise<StoreCategory | undefined> {

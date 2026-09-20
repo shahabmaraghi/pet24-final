@@ -17,6 +17,7 @@ import { useCart } from "@/lib/cart-store";
 import { useReviews } from "@/lib/reviews-store";
 import { serializeProduct } from "@/lib/store-product";
 import { ProductImageSlider } from "@/components/product-image-slider";
+import { TrackRecentlyViewed } from "@/components/track-recently-viewed";
 
 const reviewSchema = z.object({
   author: z.string().min(2, "نام باید حداقل ۲ حرف باشد"),
@@ -75,6 +76,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
 
   return (
     <>
+      <TrackRecentlyViewed productId={String(product.id)} />
       <div className="mb-4 text-[13px] text-muted-foreground">
         <Link href="/" className="hover:text-primary">خانه</Link> / <Link href={`/category/${category.id}`} className="hover:text-primary">{category.name}</Link> / {product.name}
       </div>

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { dbConnect, resetMongoCache } from "@/lib/db";
+import { dbConnect, withMongoRetry } from "@/lib/db";
 import Product from "@/lib/models/Product";
 import { requireAdmin } from "@/lib/api-helpers";
 import { serializeProduct } from "@/lib/store-product";
@@ -16,25 +16,21 @@ export async function GET(req: Request) {
   if (featured) filter.featured = true;
   if (q) filter.name = { $regex: q, $options: "i" };
 
-  let lastError: unknown;
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      await dbConnect();
-      const [items, total] = await Promise.all([
-        Product.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit),
-        Product.countDocuments(filter),
-      ]);
-      return NextResponse.json(
-        { items: items.map(serializeProduct), total, page, pages: Math.ceil(total / limit) },
-        { headers: { "Cache-Control": "no-store" } }
-      );
-    } catch (error) {
-      lastError = error;
-      await resetMongoCache();
-    }
+  try {
+    const [items, total] = await withMongoRetry(async () =>
+      Promise.all([
+        Product.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).maxTimeMS(8000),
+        Product.countDocuments(filter).maxTimeMS(8000),
+      ])
+    );
+    return NextResponse.json(
+      { items: items.map(serializeProduct), total, page, pages: Math.ceil(total / limit) },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  } catch (lastError) {
+    console.error("GET /api/products failed", lastError);
+    return NextResponse.json({ items: [], total: 0, page, pages: 0 }, { headers: { "Cache-Control": "no-store" } });
   }
-  console.error("GET /api/products failed", lastError);
-  return NextResponse.json({ items: [], total: 0, page, pages: 0 }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(req: Request) {

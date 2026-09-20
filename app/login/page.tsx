@@ -9,9 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
+import { AuthCard } from "@/components/auth-card";
 
 const schema = z.object({
-  email: z.string().email("ایمیل معتبر نیست"),
+  email: z.string().trim().email("ایمیل معتبر نیست"),
   password: z.string().min(6, "رمز عبور باید حداقل ۶ کاراکتر باشد"),
 });
 type FormData = z.infer<typeof schema>;
@@ -20,13 +21,17 @@ export default function LoginPage() {
   const [serverError, setServerError] = React.useState("");
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { email: "admin@pet24.ir", password: "" },
+    defaultValues: { email: "", password: "" },
   });
 
   const onSubmit = async (data: FormData) => {
     setServerError("");
     try {
-      const res = await signIn("credentials", { email: data.email.trim(), password: data.password, redirect: false });
+      const res = await signIn("credentials", {
+        email: data.email.trim(),
+        password: data.password,
+        redirect: false,
+      });
       if (!res) {
         setServerError("ورود انجام نشد. دوباره تلاش کنید.");
         return;
@@ -36,8 +41,7 @@ export default function LoginPage() {
         return;
       }
       const session = await getSession();
-      const adminEmail = data.email.trim().toLowerCase();
-      const nextUrl = session?.user?.role === "admin" || adminEmail === "admin@pet24.ir" ? "/admin" : "/account";
+      const nextUrl = session?.user?.role === "admin" ? "/admin" : "/account";
       window.location.assign(nextUrl);
     } catch {
       setServerError("ورود انجام نشد. دوباره تلاش کنید.");
@@ -45,27 +49,28 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{ maxWidth: 400, margin: "60px auto", padding: 24 }}>
-      <h1 style={{ fontSize: 24, fontWeight: 800, color: "#1f4d38", marginBottom: 24 }}>ورود به حساب کاربری</h1>
-
-      <form onSubmit={handleSubmit(onSubmit)} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <div>
+    <AuthCard title="ورود به حساب کاربری" subtitle="با ایمیل و رمز عبور وارد شوید">
+      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1.5">
           <Label>ایمیل</Label>
-          <Input type="email" {...register("email")} placeholder="you@example.com" />
-          {errors.email && <span style={{ color: "#c0392b", fontSize: 12 }}>{errors.email.message}</span>}
+          <Input type="email" {...register("email")} placeholder="you@example.com" autoComplete="email" />
+          {errors.email && <span className="text-xs text-destructive">{errors.email.message}</span>}
         </div>
-        <div>
+        <div className="flex flex-col gap-1.5">
           <Label>رمز عبور</Label>
-          <PasswordInput {...register("password")} placeholder="••••••••" />
-          {errors.password && <span style={{ color: "#c0392b", fontSize: 12 }}>{errors.password.message}</span>}
+          <PasswordInput {...register("password")} placeholder="رمز عبور" autoComplete="current-password" />
+          {errors.password && <span className="text-xs text-destructive">{errors.password.message}</span>}
         </div>
-        {serverError && <span style={{ color: "#c0392b", fontSize: 13 }}>{serverError}</span>}
-        <Button type="submit" disabled={isSubmitting}>ورود</Button>
+        {serverError && <span className="text-[13px] text-destructive">{serverError}</span>}
+        <Button type="submit" disabled={isSubmitting} className="py-6 font-bold">
+          {isSubmitting ? "در حال ورود..." : "ورود"}
+        </Button>
       </form>
-
-      <p style={{ marginTop: 20, fontSize: 13, color: "#55503f" }}>
-        حساب کاربری ندارید؟ <Link href="/register" style={{ color: "#1f4d38", fontWeight: 700 }}>ثبت‌نام کنید</Link>
+      <p className="mt-4.5 text-center text-[13px] text-muted-foreground">
+        حساب کاربری ندارید؟{" "}
+        <Link href="/register" className="font-bold text-primary">ثبت‌نام کنید</Link>
       </p>
-    </div>
+      <Link href="/" className="mt-3 block text-center text-[13px] text-muted-foreground">بازگشت به فروشگاه</Link>
+    </AuthCard>
   );
 }

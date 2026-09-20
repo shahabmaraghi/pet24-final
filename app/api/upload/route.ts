@@ -28,13 +28,23 @@ export async function POST(req: Request) {
 
     const folder = String(formData.get("folder") || "products").replace(/[^a-z0-9_-]/gi, "") || "products";
     const buffer = Buffer.from(await file.arrayBuffer());
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-    const apiKey = process.env.CLOUDINARY_API_KEY;
-    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME?.trim();
+    const apiKey = process.env.CLOUDINARY_API_KEY?.trim();
+    const apiSecret = process.env.CLOUDINARY_API_SECRET?.trim();
+    const hasCloudinary = Boolean(cloudName && apiKey && apiSecret);
+    const onVercel = Boolean(process.env.VERCEL);
 
-    if (cloudName && apiKey && apiSecret) {
+    if (hasCloudinary) {
       const result = await uploadBuffer(buffer, `pet24/${folder}`);
       return NextResponse.json({ url: result.secure_url, id: result.public_id, urls: { default: result.secure_url } });
+    }
+
+    // Vercel has a read-only filesystem, so local /public/uploads cannot work there.
+    if (onVercel || process.env.NODE_ENV === "production") {
+      return NextResponse.json(
+        { error: "برای آپلود تصویر در سرور، CLOUDINARY_CLOUD_NAME، CLOUDINARY_API_KEY و CLOUDINARY_API_SECRET را در Vercel تنظیم کنید." },
+        { status: 503 }
+      );
     }
 
     const ext = mime === "image/png" ? ".png" : mime === "image/webp" ? ".webp" : mime === "image/gif" ? ".gif" : ".jpg";
@@ -44,7 +54,8 @@ export async function POST(req: Request) {
     await writeFile(path.join(dir, filename), buffer);
     const url = `/uploads/${folder}/${filename}`;
     return NextResponse.json({ url, urls: { default: url } });
-  } catch {
+  } catch (err) {
+    console.error("POST /api/upload failed", err);
     return NextResponse.json({ error: "بارگذاری تصویر انجام نشد." }, { status: 500 });
   }
 }

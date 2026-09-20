@@ -53,6 +53,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = (user as { id?: string }).id || "admin";
         token.email = user.email;
+        token.name = user.name;
         token.role = (user as { role?: "user" | "admin" }).role || "user";
       }
       if (String(token.email || "").toLowerCase() === ADMIN_EMAIL) token.role = "admin";
@@ -63,6 +64,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id;
         session.user.role = token.role === "admin" ? "admin" : "user";
         session.user.email = token.email as string;
+        session.user.name = (token.name as string | undefined) || session.user.name;
       }
       return session;
     },
