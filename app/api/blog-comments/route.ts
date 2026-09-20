@@ -1,10 +1,32 @@
 import { NextResponse } from "next/server";
-import { dbConnect } from "@/lib/db";
+import { dbConnect, withMongoRetry } from "@/lib/db";
 import BlogComment from "@/lib/models/BlogComment";
 import { getSession, requireAdmin } from "@/lib/api-helpers";
 
+function serializeComment(doc: {
+  _id?: unknown;
+  id?: unknown;
+  author?: string;
+  text?: string;
+  status?: string;
+  createdAt?: Date | string;
+  postId?: unknown;
+}) {
+  const post = doc.postId && typeof doc.postId === "object" && "title" in (doc.postId as object)
+    ? (doc.postId as { _id?: unknown; title?: string })
+    : null;
+  return {
+    id: String(doc._id ?? doc.id ?? ""),
+    author: String(doc.author || ""),
+    text: String(doc.text || ""),
+    status: doc.status === "rejected" || doc.status === "pending" ? doc.status : "approved",
+    createdAt: doc.createdAt,
+    postTitle: String(post?.title || ""),
+    postId: String(post?._id ?? doc.postId ?? ""),
+  };
+}
+
 export async function GET(req: Request) {
-  await dbConnect();
   const { searchParams } = new URL(req.url);
   const postId = searchParams.get("postId");
   const status = searchParams.get("status") || "approved";
@@ -13,12 +35,30 @@ export async function GET(req: Request) {
       const { error } = await requireAdmin();
       if (error) return error;
     }
-    const filter = status === "all" ? {} : { status };
-    const items = await BlogComment.find(filter).populate("postId", "title").sort({ createdAt: -1 });
-    return NextResponse.json(items);
+    try {
+      const filter = status === "all" ? {} : { status };
+      const items = await withMongoRetry(async () => {
+        try {
+          return await BlogComment.find(filter).populate({ path: "postId", select: "title", strictPopulate: false }).sort({ createdAt: -1 }).lean();
+        } catch {
+          return await BlogComment.find(filter).sort({ createdAt: -1 }).lean();
+        }
+      });
+      return NextResponse.json(items.map(serializeComment));
+    } catch (error) {
+      console.error("GET /api/blog-comments failed", error);
+      return NextResponse.json({ error: "بارگذاری نظرات انجام نشد." }, { status: 503 });
+    }
   }
-  const items = await BlogComment.find({ postId, status: "approved" }).sort({ createdAt: -1 });
-  return NextResponse.json(items);
+  try {
+    const items = await withMongoRetry(() =>
+      BlogComment.find({ postId, status: "approved" }).sort({ createdAt: -1 }).lean()
+    );
+    return NextResponse.json(items.map(serializeComment));
+  } catch (error) {
+    console.error("GET /api/blog-comments failed", error);
+    return NextResponse.json([], { status: 200 });
+  }
 }
 
 export async function POST(req: Request) {

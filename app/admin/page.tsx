@@ -147,33 +147,41 @@ export default function AdminPage() {
         })));
       })
       .catch(() => {});
-    fetch("/api/reviews?status=all", { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : []))
-      .then((items) => {
-        if (!Array.isArray(items)) return;
-        setReviews(items.map((item: { _id?: string; id?: string; author?: string; text?: string; rating?: number; status?: string; productId?: { name?: string } }) => ({
-          id: String(item._id || item.id),
+    fetch("/api/reviews?status=all", { cache: "no-store", credentials: "include" })
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !Array.isArray(data)) {
+          setReviewsError((data && data.error) || "بارگذاری نظرات محصولات انجام نشد.");
+          return;
+        }
+        setReviewsError("");
+        setReviews(data.map((item: { _id?: string; id?: string; author?: string; text?: string; rating?: number; status?: string; productName?: string; productId?: { name?: string } | string }) => ({
+          id: String(item.id || item._id),
           name: String(item.author || ""),
           text: String(item.text || ""),
           rating: Number(item.rating || 0),
           status: (item.status === "rejected" || item.status === "pending" ? item.status : "approved") as AdminReview["status"],
-          productName: String(item.productId?.name || ""),
+          productName: String(item.productName || (typeof item.productId === "object" ? item.productId?.name : "") || ""),
         })));
       })
-      .catch(() => {});
-    fetch("/api/blog-comments?status=all", { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : []))
-      .then((items) => {
-        if (!Array.isArray(items)) return;
-        setComments(items.map((item: { _id?: string; id?: string; author?: string; text?: string; status?: string; postId?: { title?: string } }) => ({
-          id: String(item._id || item.id),
+      .catch(() => setReviewsError("بارگذاری نظرات محصولات انجام نشد."));
+    fetch("/api/blog-comments?status=all", { cache: "no-store", credentials: "include" })
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !Array.isArray(data)) {
+          setCommentsError((data && data.error) || "بارگذاری نظرات بلاگ انجام نشد.");
+          return;
+        }
+        setCommentsError("");
+        setComments(data.map((item: { _id?: string; id?: string; author?: string; text?: string; status?: string; postTitle?: string; postId?: { title?: string } | string }) => ({
+          id: String(item.id || item._id),
           name: String(item.author || ""),
           text: String(item.text || ""),
           status: (item.status === "rejected" || item.status === "pending" ? item.status : "approved") as AdminComment["status"],
-          postTitle: String(item.postId?.title || ""),
+          postTitle: String(item.postTitle || (typeof item.postId === "object" ? item.postId?.title : "") || ""),
         })));
       })
-      .catch(() => {});
+      .catch(() => setCommentsError("بارگذاری نظرات بلاگ انجام نشد."));
     fetch("/api/orders?all=true", { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : []))
       .then((items) => {
@@ -235,7 +243,9 @@ export default function AdminPage() {
   const postHtmlRef = React.useRef("");
   const postForm = useForm<PostFormData>({ resolver: zodResolver(postSchema), defaultValues: { title: "", category: "", author: "تیم Pet24", excerpt: "", body: "" } });
   const [comments, setComments] = React.useState<AdminComment[]>([]);
+  const [commentsError, setCommentsError] = React.useState("");
   const [reviews, setReviews] = React.useState<AdminReview[]>([]);
+  const [reviewsError, setReviewsError] = React.useState("");
   const [users, setUsers] = React.useState<AdminUser[]>([]);
 
   if (status !== "authenticated" || session?.user?.role !== "admin") {
@@ -883,8 +893,9 @@ export default function AdminPage() {
           {tab === "reviews" && (
             <>
               <h1 className="mb-5 text-[22px] font-extrabold text-primary">نظرات محصولات</h1>
+              {reviewsError && <p className="mb-4 text-sm text-destructive">{reviewsError}</p>}
               <div className="flex flex-col gap-2.5">
-                {reviews.length === 0 && (
+                {reviews.length === 0 && !reviewsError && (
                   <div className="rounded-xl border bg-card py-8 text-center text-sm text-muted-foreground">نظری برای بررسی وجود ندارد.</div>
                 )}
                 {reviews.map((c) => (
@@ -924,8 +935,9 @@ export default function AdminPage() {
           {tab === "comments" && (
             <>
               <h1 className="mb-5 text-[22px] font-extrabold text-primary">نظرات بلاگ</h1>
+              {commentsError && <p className="mb-4 text-sm text-destructive">{commentsError}</p>}
               <div className="flex flex-col gap-2.5">
-                {comments.length === 0 && (
+                {comments.length === 0 && !commentsError && (
                   <div className="rounded-xl border bg-card py-8 text-center text-sm text-muted-foreground">نظری برای بررسی وجود ندارد.</div>
                 )}
                 {comments.map((c) => (
