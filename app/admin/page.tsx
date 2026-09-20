@@ -6,7 +6,7 @@ import { signOut, useSession } from "next-auth/react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { LayoutGrid, Package, Tag, GalleryHorizontal, ClipboardList, Users, LogOut, Menu } from "lucide-react";
+import { LayoutGrid, Package, Tag, GalleryHorizontal, ClipboardList, Users, LogOut, Menu, MessageSquare } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,7 @@ const TABS = [
   { id: "slider", label: "اسلایدر", Icon: GalleryHorizontal },
   { id: "orders", label: "سفارش‌ها", Icon: ClipboardList },
   { id: "posts", label: "پست‌های بلاگ", Icon: ClipboardList },
+  { id: "reviews", label: "نظرات محصولات", Icon: MessageSquare },
   { id: "comments", label: "نظرات بلاگ", Icon: ClipboardList },
   { id: "users", label: "کاربران", Icon: Users },
 ] as const;
@@ -63,6 +64,7 @@ type AdminProduct = { id: string; name: string; categoryId: string; category: st
 type AdminPost = { id: string; title: string; category: string; author: string; date: string; excerpt: string; paragraphs: string[]; content?: string; coverImage?: string };
 type AdminSlide = { id: string; title: string; subtitle: string; tint: string };
 type AdminComment = { id: string; name: string; text: string; status: "approved" | "pending" | "rejected"; postTitle: string };
+type AdminReview = { id: string; name: string; text: string; rating: number; status: "approved" | "pending" | "rejected"; productName: string };
 type AdminOrder = { id: string; customer: string; userId: string; total: number; date: string; status: string };
 type AdminUser = { id: string; name: string; phone: string; email: string; orders: number };
 
@@ -145,6 +147,20 @@ export default function AdminPage() {
         })));
       })
       .catch(() => {});
+    fetch("/api/reviews?status=all", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((items) => {
+        if (!Array.isArray(items)) return;
+        setReviews(items.map((item: { _id?: string; id?: string; author?: string; text?: string; rating?: number; status?: string; productId?: { name?: string } }) => ({
+          id: String(item._id || item.id),
+          name: String(item.author || ""),
+          text: String(item.text || ""),
+          rating: Number(item.rating || 0),
+          status: (item.status === "rejected" || item.status === "pending" ? item.status : "approved") as AdminReview["status"],
+          productName: String(item.productId?.name || ""),
+        })));
+      })
+      .catch(() => {});
     fetch("/api/blog-comments?status=all", { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : []))
       .then((items) => {
@@ -219,6 +235,7 @@ export default function AdminPage() {
   const postHtmlRef = React.useRef("");
   const postForm = useForm<PostFormData>({ resolver: zodResolver(postSchema), defaultValues: { title: "", category: "", author: "تیم Pet24", excerpt: "", body: "" } });
   const [comments, setComments] = React.useState<AdminComment[]>([]);
+  const [reviews, setReviews] = React.useState<AdminReview[]>([]);
   const [users, setUsers] = React.useState<AdminUser[]>([]);
 
   if (status !== "authenticated" || session?.user?.role !== "admin") {
@@ -859,6 +876,47 @@ export default function AdminPage() {
                     ))}
                   </TableBody>
                 </Table>
+              </div>
+            </>
+          )}
+
+          {tab === "reviews" && (
+            <>
+              <h1 className="mb-5 text-[22px] font-extrabold text-primary">نظرات محصولات</h1>
+              <div className="flex flex-col gap-2.5">
+                {reviews.length === 0 && (
+                  <div className="rounded-xl border bg-card py-8 text-center text-sm text-muted-foreground">نظری برای بررسی وجود ندارد.</div>
+                )}
+                {reviews.map((c) => (
+                  <div key={c.id} className="rounded-xl border bg-card p-4">
+                    <div className="mb-1.5 flex justify-between">
+                      <span className="text-[13px] font-bold">{c.name}</span>
+                      <span className={`text-xs font-bold ${c.status === "approved" ? "text-primary" : c.status === "pending" ? "text-[#c17d2f]" : "text-destructive"}`}>
+                        {c.status === "approved" ? "تایید شده" : c.status === "pending" ? "در انتظار تایید" : "رد شده"}
+                      </span>
+                    </div>
+                    <div className="mb-2 text-xs text-muted-foreground">روی محصول: {c.productName || "—"}{c.rating ? ` — امتیاز ${c.rating} از ۵` : ""}</div>
+                    <div className="mb-3 text-sm leading-relaxed text-muted-foreground">{c.text}</div>
+                    {c.status === "pending" && (
+                      <div className="flex gap-3.5">
+                        <button
+                          onClick={async () => {
+                            const res = await fetch(`/api/reviews/${c.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "approved" }) });
+                            if (res.ok) setReviews((cs) => cs.map((x) => (x.id === c.id ? { ...x, status: "approved" } : x)));
+                          }}
+                          className="text-[13px] font-semibold text-primary"
+                        >تایید</button>
+                        <button
+                          onClick={async () => {
+                            const res = await fetch(`/api/reviews/${c.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "rejected" }) });
+                            if (res.ok) setReviews((cs) => cs.map((x) => (x.id === c.id ? { ...x, status: "rejected" } : x)));
+                          }}
+                          className="text-[13px] font-semibold text-destructive"
+                        >رد</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             </>
           )}
