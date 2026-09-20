@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { dbConnect } from "@/lib/db";
 import Review from "@/lib/models/Review";
-import { requireAdmin, requireAuth } from "@/lib/api-helpers";
+import { getSession, requireAdmin } from "@/lib/api-helpers";
 
 export async function GET(req: Request) {
   try {
@@ -25,20 +25,24 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { session, error } = await requireAuth();
-  if (error) return error;
   try {
     await dbConnect();
+    const session = await getSession();
     const body = await req.json();
-    if (!body.productId || !body.text || !body.rating) {
-      return NextResponse.json({ error: "امتیاز و متن نظر الزامی است." }, { status: 400 });
+    const author = String(body.author || session?.user?.name || "").trim();
+    const text = String(body.text || "").trim();
+    const rating = Number(body.rating);
+    if (!body.productId || !text || !author || !Number.isFinite(rating)) {
+      return NextResponse.json({ error: "نام، امتیاز و متن نظر الزامی است." }, { status: 400 });
     }
+    const userId =
+      session?.user?.id && /^[a-fA-F0-9]{24}$/.test(session.user.id) ? session.user.id : undefined;
     const review = await Review.create({
       productId: body.productId,
-      userId: session!.user.id,
-      author: session!.user.name || "کاربر",
-      rating: body.rating,
-      text: body.text,
+      ...(userId ? { userId } : {}),
+      author,
+      rating: Math.min(5, Math.max(1, Math.round(rating))),
+      text,
       status: "pending",
     });
     return NextResponse.json(review, { status: 201 });
