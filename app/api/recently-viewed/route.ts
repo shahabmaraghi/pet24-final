@@ -28,11 +28,15 @@ export async function GET() {
     await dbConnect();
     const user = await findAccountUser(session);
     const viewed = Array.isArray(user?.recentlyViewed) ? user.recentlyViewed : [];
-    const ids = viewed.map((item: { productId?: string }) => String(item.productId || "")).filter(Boolean);
-    const objectIds = ids.filter((id) => Types.ObjectId.isValid(id)).map((id) => new Types.ObjectId(id));
+    const ids: string[] = viewed
+      .map((item: { productId?: string }) => String(item.productId || ""))
+      .filter((id: string) => id.length > 0);
+    const objectIds = ids
+      .filter((id: string) => Types.ObjectId.isValid(id))
+      .map((id: string) => new Types.ObjectId(id));
     const products = objectIds.length > 0 ? await Product.find({ _id: { $in: objectIds } }) : [];
     const byId = new Map(products.map((item) => [String(item._id), serializeProduct(item)]));
-    const items = ids.map((id) => byId.get(id)).filter(Boolean);
+    const items = ids.map((id: string) => byId.get(id)).filter(Boolean);
     return NextResponse.json({ items });
   } catch (err) {
     console.error("GET /api/recently-viewed failed", err);
