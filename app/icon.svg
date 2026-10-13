@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Pet24">
+  <defs>
+    <linearGradient id="pet24" x1="6" y1="2" x2="26" y2="30" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2f7d4f"/>
+      <stop offset="1" stop-color="#1f4d38"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="8" fill="url(#pet24)"/>
+  <g fill="#fff" transform="translate(4 3.5)">
+    <ellipse cx="12" cy="15" rx="6.3" ry="5.3"/>
+    <circle cx="5" cy="9" r="2.3"/>
+    <circle cx="10" cy="5" r="2.1"/>
+    <circle cx="14" cy="5" r="2.1"/>
+    <circle cx="19" cy="9" r="2.3"/>
+  </g>
+</svg>

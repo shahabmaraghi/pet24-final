@@ -7,8 +7,16 @@ import "./globals.css";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Pet24 — فروشگاه حیوانات خانگی",
+  title: "pet24 - پلتفرم جامع pet",
   description: "فروشگاه آنلاین لوازم و غذای حیوانات خانگی",
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    shortcut: ["/favicon.svg"],
+    apple: [{ url: "/apple-icon", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
