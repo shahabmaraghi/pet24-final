@@ -12,8 +12,10 @@ import BlogPost from "../lib/models/BlogPost";
 import Slide from "../lib/models/Slide";
 import User from "../lib/models/User";
 import Breed from "../lib/models/Breed";
+import Faq from "../lib/models/Faq";
 import { CATEGORIES, PRODUCTS, BLOG_POSTS, SLIDES } from "../lib/data";
 import { SEED_BREEDS, seedBreedDoc } from "../lib/breed-catalog";
+import { SEED_FAQS } from "../lib/store-faq";
 
 loadEnv({ path: path.join(process.cwd(), ".env") });
 loadEnv({ path: path.join(process.cwd(), ".env.local"), override: true });
@@ -41,6 +43,9 @@ async function seed() {
   await Slide.insertMany(SLIDES.map((s, i) => ({ ...s, order: i })));
   await Breed.deleteMany({});
   await Breed.insertMany(SEED_BREEDS.map(seedBreedDoc));
+  if ((await Faq.countDocuments()) === 0) {
+    await Faq.insertMany(SEED_FAQS);
+  }
 
   const adminEmail = process.env.SEED_ADMIN_EMAIL || "admin@pet24.ir";
   const existingAdmin = await User.findOne({ email: adminEmail });

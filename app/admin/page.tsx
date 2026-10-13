@@ -6,7 +6,7 @@ import { signOut, useSession } from "next-auth/react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { LayoutGrid, Package, Tag, GalleryHorizontal, ClipboardList, Users, LogOut, Menu, MessageSquare, PawPrint } from "lucide-react";
+import { LayoutGrid, Package, Tag, GalleryHorizontal, ClipboardList, Users, LogOut, Menu, MessageSquare, PawPrint, CircleHelp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,13 @@ const slideSchema = z.object({
   subtitle: z.string().min(2, "زیرعنوان را وارد کنید"),
 });
 type SlideFormData = z.infer<typeof slideSchema>;
+const faqSchema = z.object({
+  question: z.string().min(5, "سؤال را وارد کنید"),
+  answer: z.string().min(5, "پاسخ را وارد کنید"),
+  order: z.coerce.number().min(0),
+  active: z.boolean(),
+});
+type FaqFormData = z.infer<typeof faqSchema>;
 
 const TABS = [
   { id: "dashboard", label: "داشبورد", Icon: LayoutGrid },
@@ -55,6 +62,7 @@ const TABS = [
   { id: "categories", label: "دسته‌بندی‌ها", Icon: Tag },
   { id: "breeds", label: "نژادها", Icon: PawPrint },
   { id: "slider", label: "اسلایدر", Icon: GalleryHorizontal },
+  { id: "faq", label: "سؤالات متداول", Icon: CircleHelp },
   { id: "orders", label: "سفارش‌ها", Icon: ClipboardList },
   { id: "posts", label: "پست‌های بلاگ", Icon: ClipboardList },
   { id: "reviews", label: "نظرات محصولات", Icon: MessageSquare },
@@ -66,6 +74,7 @@ type TabId = (typeof TABS)[number]["id"];
 type AdminProduct = { id: string; name: string; categoryId: string; category: string; price: number; stock: number; images: string[] };
 type AdminPost = { id: string; title: string; category: string; author: string; date: string; excerpt: string; paragraphs: string[]; content?: string; coverImage?: string };
 type AdminSlide = { id: string; title: string; subtitle: string; tint: string; image?: string };
+type AdminFaq = { id: string; question: string; answer: string; order: number; active: boolean };
 type AdminComment = { id: string; name: string; text: string; status: "approved" | "pending" | "rejected"; postTitle: string };
 type AdminReview = { id: string; name: string; text: string; rating: number; status: "approved" | "pending" | "rejected"; productName: string };
 type AdminOrder = { id: string; customer: string; userId: string; total: number; date: string; status: string };
@@ -148,6 +157,19 @@ export default function AdminPage() {
           subtitle: String(item.subtitle || ""),
           tint: String(item.from || "#2f7d4f"),
           image: String(item.image || ""),
+        })));
+      })
+      .catch(() => {});
+    fetch("/api/faq?all=true", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((items) => {
+        if (!Array.isArray(items)) return;
+        setFaqs(items.map((item: AdminFaq) => ({
+          id: String(item.id),
+          question: String(item.question || ""),
+          answer: String(item.answer || ""),
+          order: Number(item.order || 0),
+          active: item.active !== false,
         })));
       })
       .catch(() => {});
@@ -243,6 +265,14 @@ export default function AdminPage() {
   const [slideError, setSlideError] = React.useState("");
   const [slideImage, setSlideImage] = React.useState("");
   const slideForm = useForm<SlideFormData>({ resolver: zodResolver(slideSchema), defaultValues: { title: "", subtitle: "" } });
+  const [faqs, setFaqs] = React.useState<AdminFaq[]>([]);
+  const [editingFaqId, setEditingFaqId] = React.useState<string | null | undefined>(undefined);
+  const [faqBusy, setFaqBusy] = React.useState(false);
+  const [faqError, setFaqError] = React.useState("");
+  const faqForm = useForm<FaqFormData>({
+    resolver: zodResolver(faqSchema),
+    defaultValues: { question: "", answer: "", order: 0, active: true },
+  });
   const [orders, setOrders] = React.useState<AdminOrder[]>([]);
   const [orderError, setOrderError] = React.useState("");
   const [posts, setPosts] = React.useState<AdminPost[]>([]);
@@ -464,6 +494,49 @@ export default function AdminPage() {
     }
   };
 
+  const startAddFaq = () => {
+    setEditingFaqId(null);
+    faqForm.reset({ question: "", answer: "", order: faqs.length + 1, active: true });
+  };
+  const startEditFaq = (faq: AdminFaq) => {
+    setEditingFaqId(faq.id);
+    faqForm.reset({ question: faq.question, answer: faq.answer, order: faq.order, active: faq.active });
+  };
+  const saveFaq = async (data: FaqFormData) => {
+    setFaqBusy(true);
+    setFaqError("");
+    try {
+      const res = await fetch(editingFaqId ? `/api/faq/${editingFaqId}` : "/api/faq", {
+        method: editingFaqId ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const saved = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setFaqError(saved.error || "ذخیره سؤال انجام نشد.");
+        return;
+      }
+      const rec: AdminFaq = {
+        id: String(saved.id || saved._id),
+        question: String(saved.question || data.question),
+        answer: String(saved.answer || data.answer),
+        order: Number(saved.order ?? data.order),
+        active: saved.active !== false,
+      };
+      setFaqs((current) => {
+        const next = current.some((item) => item.id === rec.id)
+          ? current.map((item) => (item.id === rec.id ? rec : item))
+          : [...current, rec];
+        return next.sort((a, b) => a.order - b.order);
+      });
+      setEditingFaqId(undefined);
+    } catch {
+      setFaqError("ذخیره سؤال انجام نشد.");
+    } finally {
+      setFaqBusy(false);
+    }
+  };
+
   const NavList = ({ onNavigate }: { onNavigate?: () => void }) => (
     <>
       <div className="mb-5 flex items-center gap-2.5 px-1">
@@ -473,7 +546,7 @@ export default function AdminPage() {
       {TABS.map((t) => (
         <button
           key={t.id}
-          onClick={() => { setTab(t.id); setEditingId(undefined); setEditingPostId(undefined); setEditingSlideId(undefined); onNavigate?.(); }}
+          onClick={() => { setTab(t.id); setEditingId(undefined); setEditingPostId(undefined); setEditingSlideId(undefined); setEditingFaqId(undefined); onNavigate?.(); }}
           className={`flex items-center gap-2.5 rounded-[10px] px-3.5 py-3 text-sm font-semibold ${tab === t.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"}`}
         >
           <t.Icon className="h-[17px] w-[17px] shrink-0" strokeWidth={1.8} />{t.label}
@@ -873,6 +946,87 @@ export default function AdminPage() {
                       }}
                       className="text-[13px] font-semibold text-destructive"
                     >حذف</button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {tab === "faq" && (
+            <>
+              <div className="mb-5 flex items-center justify-between">
+                <h1 className="text-[22px] font-extrabold text-primary">سؤالات متداول</h1>
+                <Button type="button" onClick={startAddFaq} className="font-bold">افزودن سؤال</Button>
+              </div>
+              {faqError && <p className="mb-3 text-sm text-destructive">{faqError}</p>}
+              {editingFaqId !== undefined && (
+                <form onSubmit={faqForm.handleSubmit(saveFaq)} className="mb-5 flex flex-col gap-3 rounded-2xl border bg-card p-5">
+                  <div className="flex flex-col gap-1.5">
+                    <Label>سؤال</Label>
+                    <Input {...faqForm.register("question")} placeholder="مثلاً هزینه ارسال چقدر است؟" />
+                    {faqForm.formState.errors.question && <span className="text-xs text-destructive">{faqForm.formState.errors.question.message}</span>}
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>پاسخ</Label>
+                    <Textarea rows={4} {...faqForm.register("answer")} placeholder="پاسخ کامل را بنویسید" />
+                    {faqForm.formState.errors.answer && <span className="text-xs text-destructive">{faqForm.formState.errors.answer.message}</span>}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <Label>ترتیب نمایش</Label>
+                      <Input type="number" min="0" className="w-28" {...faqForm.register("order")} />
+                    </div>
+                    <label className="mt-5 flex items-center gap-2 text-sm font-semibold">
+                      <input type="checkbox" {...faqForm.register("active")} />
+                      نمایش در صفحه اصلی
+                    </label>
+                  </div>
+                  <div className="flex gap-2.5">
+                    <Button type="submit" disabled={faqBusy} className="font-bold">ذخیره</Button>
+                    <Button type="button" variant="outline" onClick={() => setEditingFaqId(undefined)}>انصراف</Button>
+                  </div>
+                </form>
+              )}
+              <div className="flex flex-col gap-2.5">
+                {faqs.length === 0 && <p className="text-sm text-muted-foreground">هنوز سؤالی ثبت نشده است.</p>}
+                {faqs.map((faq) => (
+                  <div key={faq.id} className="rounded-xl border bg-card p-3.5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-bold">{faq.question}</div>
+                        <div className="mt-1 text-[13px] leading-6 text-muted-foreground">{faq.answer}</div>
+                        <div className="mt-1.5 text-[11px] text-muted-foreground">
+                          ترتیب {faq.order.toLocaleString("fa-IR")} · {faq.active ? "فعال" : "مخفی"}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 gap-3">
+                        <button type="button" onClick={() => startEditFaq(faq)} className="text-[13px] font-semibold text-primary">ویرایش</button>
+                        <button
+                          type="button"
+                          disabled={faqBusy}
+                          onClick={async () => {
+                            if (!window.confirm("این سؤال حذف شود؟")) return;
+                            setFaqBusy(true);
+                            setFaqError("");
+                            try {
+                              const res = await fetch(`/api/faq/${faq.id}`, { method: "DELETE" });
+                              if (!res.ok) {
+                                setFaqError("حذف سؤال انجام نشد.");
+                                return;
+                              }
+                              setFaqs((current) => current.filter((item) => item.id !== faq.id));
+                            } catch {
+                              setFaqError("حذف سؤال انجام نشد.");
+                            } finally {
+                              setFaqBusy(false);
+                            }
+                          }}
+                          className="text-[13px] font-semibold text-destructive"
+                        >
+                          حذف
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>

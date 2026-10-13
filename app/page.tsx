@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Truck, ShieldCheck, BadgeCheck, Calendar, ChevronRight, User as UserIcon, ChevronLeft } from "lucide-react";
+import { Truck, ShieldCheck, BadgeCheck, Calendar, User as UserIcon, ChevronLeft } from "lucide-react";
 import { HeroSlider } from "@/components/hero-slider";
 import { FeaturedProductsCarousel } from "@/components/featured-products-carousel";
 import { CategoryIcon } from "@/components/category-icon";
@@ -7,16 +7,19 @@ import { getStoreCategories } from "@/lib/get-store-categories";
 import { getStoreProducts } from "@/lib/get-store-products";
 import { getStoreBlogPosts } from "@/lib/get-store-blog";
 import { getStoreSlides } from "@/lib/get-store-slides";
+import { getStoreFaqs } from "@/lib/get-store-faq";
+import { HomeFaq } from "@/components/home-faq";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [categories, featured, discounted, blogPosts, slides] = await Promise.all([
+  const [categories, featured, discounted, blogPosts, slides, faqs] = await Promise.all([
     getStoreCategories().catch(() => []),
     getStoreProducts({ featured: true }).catch(() => []),
     getStoreProducts({ discounted: true }).catch(() => []),
     getStoreBlogPosts(8).catch(() => []),
     getStoreSlides().catch(() => []),
+    getStoreFaqs().catch(() => []),
   ]);
   const [main, ...rest] = blogPosts;
   const side = [...rest.filter((post) => post.coverImage), ...rest.filter((post) => !post.coverImage)].slice(0, 2);
@@ -101,6 +104,8 @@ export default async function HomePage() {
         </div>
       </section>
       )}
+
+      <HomeFaq items={faqs} />
 
       <section className="grid gap-4 md:grid-cols-3">
         {[
