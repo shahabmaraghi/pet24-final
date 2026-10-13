@@ -9,6 +9,7 @@ import { getStoreBlogPosts } from "@/lib/get-store-blog";
 import { getStoreSlides } from "@/lib/get-store-slides";
 import { getStoreFaqs } from "@/lib/get-store-faq";
 import { HomeFaq } from "@/components/home-faq";
+import { HomeAccountCta } from "@/components/home-account-cta";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +57,8 @@ export default async function HomePage() {
         <h2 className="mb-5 text-[22px] font-extrabold text-primary">تخفیف‌ها</h2>
         <FeaturedProductsCarousel products={discounted} emptyMessage="در حال حاضر محصول تخفیف‌داری وجود ندارد." />
       </section>
+
+      <HomeAccountCta />
 
       {main && (
       <section className="relative mb-12 min-h-[340px] overflow-hidden rounded-3xl sm:min-h-[420px]">
