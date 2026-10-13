@@ -108,7 +108,7 @@ export function SiteHeader() {
             </div>
           </div>
 
-          <div className="order-4 mr-auto flex items-center gap-3 sm:order-3 sm:mr-0">
+          <div className="order-2 ms-auto flex items-center gap-3 sm:order-3">
             <Link href={session?.user ? "/account" : "/login"} className="flex h-10 w-10 items-center justify-center rounded-xl border-[1.5px] hover:bg-accent" aria-label="حساب کاربری">
               <User className="h-[19px] w-[19px] text-primary" strokeWidth={1.7} />
             </Link>

@@ -1,5 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "owl.carousel/dist/assets/owl.carousel.css";
+@import "owl.carousel/dist/assets/owl.theme.default.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -54,6 +56,7 @@
 
 @layer base {
   * { border-color: var(--color-border); }
+  html, body { overflow-x: hidden; }
   body { background: var(--color-background); color: var(--color-foreground); }
   button:not(:disabled), a, [role="button"], [onclick], select, summary, label[for] {
     cursor: pointer;
@@ -81,3 +84,63 @@
 .blog-html figure { margin: 1.1rem 0; }
 .blog-html figure.image { display: block; text-align: center; }
 .blog-html figcaption { margin-top: 0.4rem; font-size: 0.85rem; color: var(--muted-foreground); }
+
+.featured-products-owl {
+  position: relative;
+  padding: 0 8px 12px;
+}
+.featured-products-owl .owl-carousel {
+  display: block;
+}
+.featured-products-owl .owl-carousel:not(.owl-loaded) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+@media (min-width: 640px) {
+  .featured-products-owl .owl-carousel:not(.owl-loaded) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1024px) {
+  .featured-products-owl .owl-carousel:not(.owl-loaded) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.featured-products-owl .owl-nav {
+  pointer-events: none;
+}
+.featured-products-owl .owl-nav button.owl-prev,
+.featured-products-owl .owl-nav button.owl-next {
+  pointer-events: auto;
+  position: absolute;
+  top: 42%;
+  z-index: 2;
+  display: flex !important;
+  height: 40px;
+  width: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px !important;
+  background: #fff !important;
+  box-shadow: 0 8px 20px rgba(31, 41, 36, 0.12);
+  color: var(--primary) !important;
+  font-size: 28px;
+  line-height: 1;
+}
+.featured-products-owl .owl-nav button.owl-prev { right: -4px; }
+.featured-products-owl .owl-nav button.owl-next { left: -4px; }
+.featured-products-owl .owl-nav button span {
+  display: block;
+  margin-top: -4px;
+}
+.featured-products-owl .owl-dots {
+  margin-top: 16px;
+}
+.featured-products-owl .owl-dots .owl-dot span {
+  background: color-mix(in oklab, var(--primary) 28%, white);
+}
+.featured-products-owl .owl-dots .owl-dot.active span,
+.featured-products-owl .owl-dots .owl-dot:hover span {
+  background: var(--primary);
+}

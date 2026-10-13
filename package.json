@@ -28,6 +28,7 @@
     "class-variance-authority": "^0.7.1",
     "cloudinary": "^2.11.0",
     "clsx": "^2.1.1",
+    "jquery": "^3.7.1",
     "lucide-react": "^0.475.0",
     "mongodb": "^6.12.0",
     "mongoose": "^8.9.5",
@@ -35,6 +36,7 @@
     "next-auth": "^4.24.11",
     "next-themes": "^0.4.4",
     "nodemailer": "^6.9.16",
+    "owl.carousel": "^2.3.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-hook-form": "^7.54.2",
@@ -45,6 +47,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",
     "@types/bcryptjs": "^2.4.6",
+    "@types/jquery": "^4.0.1",
     "@types/node": "^22.10.7",
     "@types/nodemailer": "^6.4.17",
     "@types/react": "^19.0.8",

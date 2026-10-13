@@ -6,7 +6,7 @@ import { signOut, useSession } from "next-auth/react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { LayoutGrid, Package, Tag, GalleryHorizontal, ClipboardList, Users, LogOut, Menu, MessageSquare } from "lucide-react";
+import { LayoutGrid, Package, Tag, GalleryHorizontal, ClipboardList, Users, LogOut, Menu, MessageSquare, PawPrint } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,8 @@ import { ProductImage } from "@/components/product-image";
 import { PostEditor } from "@/components/post-editor";
 import { htmlPlainText, paragraphsToHtml, sanitizeHtml } from "@/lib/html";
 import { fmt } from "@/lib/data";
+import { PET_SPECIES } from "@/lib/store-pet";
+import { BREED_SIZES, breedSizeLabel, type StoreBreed } from "@/lib/store-breed";
 
 const productSchema = z.object({
   name: z.string().min(2, "نام محصول را وارد کنید"),
@@ -51,6 +53,7 @@ const TABS = [
   { id: "dashboard", label: "داشبورد", Icon: LayoutGrid },
   { id: "products", label: "محصولات", Icon: Package },
   { id: "categories", label: "دسته‌بندی‌ها", Icon: Tag },
+  { id: "breeds", label: "نژادها", Icon: PawPrint },
   { id: "slider", label: "اسلایدر", Icon: GalleryHorizontal },
   { id: "orders", label: "سفارش‌ها", Icon: ClipboardList },
   { id: "posts", label: "پست‌های بلاگ", Icon: ClipboardList },
@@ -62,7 +65,7 @@ type TabId = (typeof TABS)[number]["id"];
 
 type AdminProduct = { id: string; name: string; categoryId: string; category: string; price: number; stock: number; images: string[] };
 type AdminPost = { id: string; title: string; category: string; author: string; date: string; excerpt: string; paragraphs: string[]; content?: string; coverImage?: string };
-type AdminSlide = { id: string; title: string; subtitle: string; tint: string };
+type AdminSlide = { id: string; title: string; subtitle: string; tint: string; image?: string };
 type AdminComment = { id: string; name: string; text: string; status: "approved" | "pending" | "rejected"; postTitle: string };
 type AdminReview = { id: string; name: string; text: string; rating: number; status: "approved" | "pending" | "rejected"; productName: string };
 type AdminOrder = { id: string; customer: string; userId: string; total: number; date: string; status: string };
@@ -139,11 +142,12 @@ export default function AdminPage() {
       .then((res) => (res.ok ? res.json() : []))
       .then((items) => {
         if (!Array.isArray(items)) return;
-        setSlides(items.map((item: { _id?: string; id?: string; title: string; subtitle?: string; from?: string }) => ({
+        setSlides(items.map((item: { _id?: string; id?: string; title: string; subtitle?: string; from?: string; image?: string }) => ({
           id: String(item.id || item._id),
           title: String(item.title),
           subtitle: String(item.subtitle || ""),
           tint: String(item.from || "#2f7d4f"),
+          image: String(item.image || ""),
         })));
       })
       .catch(() => {});
@@ -214,6 +218,12 @@ export default function AdminPage() {
         })));
       })
       .catch(() => {});
+    fetch("/api/breeds?all=true", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((items) => {
+        if (Array.isArray(items)) setBreeds(items);
+      })
+      .catch(() => {});
   }, [status, session]);
 
   const [products, setProducts] = React.useState<AdminProduct[]>([]);
@@ -231,6 +241,7 @@ export default function AdminPage() {
   const [editingSlideId, setEditingSlideId] = React.useState<string | null | undefined>(undefined);
   const [slideBusy, setSlideBusy] = React.useState(false);
   const [slideError, setSlideError] = React.useState("");
+  const [slideImage, setSlideImage] = React.useState("");
   const slideForm = useForm<SlideFormData>({ resolver: zodResolver(slideSchema), defaultValues: { title: "", subtitle: "" } });
   const [orders, setOrders] = React.useState<AdminOrder[]>([]);
   const [orderError, setOrderError] = React.useState("");
@@ -247,6 +258,11 @@ export default function AdminPage() {
   const [reviews, setReviews] = React.useState<AdminReview[]>([]);
   const [reviewsError, setReviewsError] = React.useState("");
   const [users, setUsers] = React.useState<AdminUser[]>([]);
+  const [breeds, setBreeds] = React.useState<StoreBreed[]>([]);
+  const [breedBusy, setBreedBusy] = React.useState(false);
+  const [breedError, setBreedError] = React.useState("");
+  const [breedFilter, setBreedFilter] = React.useState("dog");
+  const [breedForm, setBreedForm] = React.useState({ species: "dog", title: "", nameEn: "", size: "medium", aliases: "" });
 
   if (status !== "authenticated" || session?.user?.role !== "admin") {
     return (
@@ -402,10 +418,12 @@ export default function AdminPage() {
 
   const startAddSlide = () => {
     setEditingSlideId(null);
+    setSlideImage("");
     slideForm.reset({ title: "", subtitle: "" });
   };
   const startEditSlide = (slide: AdminSlide) => {
     setEditingSlideId(slide.id);
+    setSlideImage(slide.image || "");
     slideForm.reset({ title: slide.title, subtitle: slide.subtitle });
   };
   const saveSlide = async (data: SlideFormData) => {
@@ -417,8 +435,9 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...data,
+          image: slideImage,
           tag: "ویژه",
-                      catId: categories.find((c) => c.active)?.id || categories[0]?.id || "dog",
+          catId: categories.find((c) => c.active)?.id || categories[0]?.id || "dog",
           from: "#2f7d4f",
           to: "#1f4d38",
         }),
@@ -433,7 +452,9 @@ export default function AdminPage() {
         title: String(saved.title),
         subtitle: String(saved.subtitle || ""),
         tint: String(saved.from || "#2f7d4f"),
+        image: String(saved.image || slideImage),
       };
+      setSlideImage("");
       setSlides((current) => (current.some((s) => s.id === rec.id) ? current.map((s) => (s.id === rec.id ? rec : s)) : [...current, rec]));
       setEditingSlideId(undefined);
     } catch {
@@ -669,6 +690,126 @@ export default function AdminPage() {
             </>
           )}
 
+          {tab === "breeds" && (
+            <>
+              <h1 className="mb-5 text-[22px] font-extrabold text-primary">نژادها</h1>
+              <p className="mb-5 text-sm text-muted-foreground">نژادهای سگ و گربه در فرم حساب کاربری به‌صورت لیست انتخاب می‌شوند. می‌توانید نژاد جدید اضافه کنید.</p>
+              <form
+                className="mb-5 grid gap-3 rounded-2xl border bg-card p-5 [grid-template-columns:repeat(auto-fit,minmax(160px,1fr))]"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  if (!breedForm.title.trim()) return;
+                  setBreedBusy(true);
+                  setBreedError("");
+                  try {
+                    const res = await fetch("/api/breeds", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(breedForm),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) {
+                      setBreedError(data.error || "ثبت نژاد انجام نشد.");
+                      return;
+                    }
+                    setBreeds((current) => [...current, data].sort((a, b) => a.title.localeCompare(b.title, "fa")));
+                    setBreedForm((current) => ({ ...current, title: "", nameEn: "", aliases: "" }));
+                  } catch {
+                    setBreedError("ثبت نژاد انجام نشد.");
+                  } finally {
+                    setBreedBusy(false);
+                  }
+                }}
+              >
+                <div className="flex flex-col gap-1.5">
+                  <Label>گونه</Label>
+                  <select className="flex h-10 rounded-md border border-input bg-background px-3 text-sm" value={breedForm.species} onChange={(e) => setBreedForm((c) => ({ ...c, species: e.target.value }))}>
+                    {PET_SPECIES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label>نام نژاد</Label>
+                  <Input value={breedForm.title} onChange={(e) => setBreedForm((c) => ({ ...c, title: e.target.value }))} placeholder="مثلاً گلدن رتریور" />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label>نام انگلیسی</Label>
+                  <Input value={breedForm.nameEn} onChange={(e) => setBreedForm((c) => ({ ...c, nameEn: e.target.value }))} placeholder="Golden Retriever" />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label>جثه</Label>
+                  <select className="flex h-10 rounded-md border border-input bg-background px-3 text-sm" value={breedForm.size} onChange={(e) => setBreedForm((c) => ({ ...c, size: e.target.value }))}>
+                    {BREED_SIZES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label>نام‌های دیگر</Label>
+                  <Input value={breedForm.aliases} onChange={(e) => setBreedForm((c) => ({ ...c, aliases: e.target.value }))} placeholder="گلدن، golden" />
+                </div>
+                <div className="flex items-end">
+                  <Button type="submit" disabled={breedBusy} className="font-bold">افزودن نژاد</Button>
+                </div>
+              </form>
+              {breedError && <p className="mb-3 text-sm text-destructive">{breedError}</p>}
+              <div className="mb-4 flex flex-wrap gap-2">
+                {[{ id: "all", label: "همه" }, ...PET_SPECIES].map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setBreedFilter(item.id)}
+                    className={`rounded-full border px-3 py-1 text-[13px] font-semibold ${breedFilter === item.id ? "border-primary bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                  >{item.label}</button>
+                ))}
+              </div>
+              <div className="rounded-2xl border bg-card">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>گونه</TableHead>
+                      <TableHead>نژاد</TableHead>
+                      <TableHead>انگلیسی</TableHead>
+                      <TableHead>جثه</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {breeds.filter((item) => breedFilter === "all" || item.species === breedFilter).map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>{PET_SPECIES.find((s) => s.id === item.species)?.label || item.species}</TableCell>
+                        <TableCell>{item.title}</TableCell>
+                        <TableCell>{item.nameEn || "—"}</TableCell>
+                        <TableCell>{breedSizeLabel(item.size)}</TableCell>
+                        <TableCell>
+                          <button
+                            type="button"
+                            disabled={breedBusy}
+                            className="font-semibold text-destructive"
+                            onClick={async () => {
+                              if (!window.confirm(`نژاد «${item.title}» حذف شود؟`)) return;
+                              setBreedBusy(true);
+                              setBreedError("");
+                              try {
+                                const res = await fetch(`/api/breeds/${item.id}`, { method: "DELETE" });
+                                if (!res.ok) {
+                                  setBreedError("حذف نژاد انجام نشد.");
+                                  return;
+                                }
+                                setBreeds((current) => current.filter((b) => b.id !== item.id));
+                              } catch {
+                                setBreedError("حذف نژاد انجام نشد.");
+                              } finally {
+                                setBreedBusy(false);
+                              }
+                            }}
+                          >حذف</button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+
           {tab === "slider" && (
             <>
               <div className="mb-5 flex items-center justify-between">
@@ -678,6 +819,14 @@ export default function AdminPage() {
               {slideError && <p className="mb-3 text-sm text-destructive">{slideError}</p>}
               {editingSlideId !== undefined && (
                 <form onSubmit={slideForm.handleSubmit(saveSlide)} className="mb-5 flex flex-col gap-3 rounded-2xl border bg-card p-5">
+                  <ImageUploader
+                    values={slideImage ? [slideImage] : []}
+                    onChange={(urls) => setSlideImage(urls[0] || "")}
+                    max={1}
+                    folder="slides"
+                    label="تصویر اسلاید"
+                    disabled={slideBusy}
+                  />
                   <div className="flex flex-col gap-1.5">
                     <Label>عنوان</Label>
                     <Input {...slideForm.register("title")} placeholder="عنوان اسلاید" />
@@ -697,7 +846,11 @@ export default function AdminPage() {
               <div className="flex flex-col gap-2.5">
                 {slides.map((sl) => (
                   <div key={sl.id} className="flex items-center gap-4 rounded-xl border bg-card p-3.5">
-                    <div className="h-10 w-14 shrink-0 rounded-lg" style={{ background: sl.tint }} />
+                    {sl.image ? (
+                      <ProductImage src={sl.image} alt={sl.title} className="h-14 w-20 rounded-lg" />
+                    ) : (
+                      <div className="h-14 w-20 shrink-0 rounded-lg" style={{ background: sl.tint }} />
+                    )}
                     <div className="flex-1"><div className="text-sm font-bold">{sl.title}</div><div className="text-xs text-muted-foreground">{sl.subtitle}</div></div>
                     <button onClick={() => startEditSlide(sl)} className="text-[13px] font-semibold text-primary">ویرایش</button>
                     <button

@@ -1,47 +1,30 @@
 import Link from "next/link";
-import { ImageIcon, Truck, ShieldCheck, BadgeCheck, Calendar, User as UserIcon } from "lucide-react";
+import { Truck, ShieldCheck, BadgeCheck, Calendar, User as UserIcon } from "lucide-react";
 import { HeroSlider } from "@/components/hero-slider";
-import { ProductCard } from "@/components/product-card";
+import { FeaturedProductsCarousel } from "@/components/featured-products-carousel";
 import { CategoryIcon } from "@/components/category-icon";
 import { getStoreCategories } from "@/lib/get-store-categories";
 import { getStoreProducts } from "@/lib/get-store-products";
 import { getStoreBlogPosts } from "@/lib/get-store-blog";
+import { getStoreSlides } from "@/lib/get-store-slides";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [categories, featured, blogPosts] = await Promise.all([
+  const [categories, featured, discounted, blogPosts, slides] = await Promise.all([
     getStoreCategories().catch(() => []),
     getStoreProducts({ featured: true }).catch(() => []),
+    getStoreProducts({ discounted: true }).catch(() => []),
     getStoreBlogPosts(3).catch(() => []),
+    getStoreSlides().catch(() => []),
   ]);
   const [main, ...side] = blogPosts;
 
   return (
     <>
-      <HeroSlider />
+      <HeroSlider initialSlides={slides} />
 
-      <section className="mb-12 grid items-center gap-8 rounded-3xl bg-gradient-to-br from-[#f0ece1] to-[#e9f1ea] p-8 shadow-sm sm:p-12 md:grid-cols-[1.1fr_0.9fr]">
-        <div className="text-center md:text-right">
-          <span className="mb-4 inline-block rounded-full bg-primary px-3.5 py-1.5 text-[13px] font-bold text-primary-foreground">
-            فروشگاه کامل لوازم حیوانات خانگی
-          </span>
-          <h1 className="mb-4 text-[26px] font-extrabold leading-relaxed text-primary sm:text-4xl">
-            هر چیزی که دوست کوچولوی شما نیاز دارد
-          </h1>
-          <p className="mb-7 text-[15px] leading-loose text-muted-foreground sm:text-base">
-            از غذا و اسباب‌بازی گرفته تا دارو، قفس و حتی خرید حیوان خانگی؛ Pet24 با ضمانت اصالت کالا و ارسال سریع در کنار شماست.
-          </p>
-          <Link href="/category/dog" className="inline-block rounded-2xl bg-primary px-8 py-3.5 text-[15px] font-bold text-primary-foreground shadow-lg hover:bg-primary/90">
-            مشاهده محصولات
-          </Link>
-        </div>
-        <div className="flex h-[280px] flex-col items-center justify-center rounded-[20px] border border-dashed bg-muted text-muted-foreground">
-          <ImageIcon className="h-14 w-14" strokeWidth={1.4} />
-          <span className="mt-2.5 text-[13px]">تصویر بنر اصلی</span>
-        </div>
-      </section>
-
+      <div className="mx-auto w-full max-w-[1280px] px-6 pt-10">
       <section className="mb-12">
         <h2 className="mb-5 text-[22px] font-extrabold text-primary">دسته‌بندی‌ها</h2>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8">
@@ -62,11 +45,12 @@ export default async function HomePage() {
 
       <section className="mb-12">
         <h2 className="mb-5 text-[22px] font-extrabold text-primary">پرفروش‌ترین محصولات</h2>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {featured.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-        </div>
+        <FeaturedProductsCarousel products={featured} emptyMessage="محصول پرفروشی برای نمایش وجود ندارد." />
+      </section>
+
+      <section className="mb-12">
+        <h2 className="mb-5 text-[22px] font-extrabold text-primary">تخفیف‌ها</h2>
+        <FeaturedProductsCarousel products={discounted} emptyMessage="در حال حاضر محصول تخفیف‌داری وجود ندارد." />
       </section>
 
       {main && (
@@ -114,6 +98,7 @@ export default async function HomePage() {
           </div>
         ))}
       </section>
+      </div>
     </>
   );
 }

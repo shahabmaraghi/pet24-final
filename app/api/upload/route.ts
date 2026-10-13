@@ -2,15 +2,15 @@ import { NextResponse } from "next/server";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
-import { requireAdmin } from "@/lib/api-helpers";
+import { requireAuth } from "@/lib/api-helpers";
 import { uploadBuffer } from "@/lib/cloudinary";
 
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const MAX_BYTES = 5 * 1024 * 1024;
 
 export async function POST(req: Request) {
-  const { error } = await requireAdmin();
-  if (error) return error;
+  const { session, error } = await requireAuth();
+  if (error || !session) return error;
 
   try {
     const formData = await req.formData();
@@ -27,6 +27,9 @@ export async function POST(req: Request) {
     }
 
     const folder = String(formData.get("folder") || "products").replace(/[^a-z0-9_-]/gi, "") || "products";
+    if (session.user.role !== "admin" && folder !== "pets") {
+      return NextResponse.json({ error: "دسترسی غیرمجاز." }, { status: 403 });
+    }
     const buffer = Buffer.from(await file.arrayBuffer());
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME?.trim();
     const apiKey = process.env.CLOUDINARY_API_KEY?.trim();
