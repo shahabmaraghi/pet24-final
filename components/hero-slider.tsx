@@ -37,8 +37,8 @@ function mapApiSlide(item: {
     tag: String(item.tag || "ویژه"),
     title: String(item.title),
     subtitle: String(item.subtitle || ""),
-    from: String(item.from || "#3f7a5c"),
-    to: String(item.to || "#1f4d38"),
+    from: String(item.from || "#f0ece1"),
+    to: String(item.to || item.from || "#e9f1ea"),
     image: item.image ? String(item.image) : "",
     order: 0,
   };
@@ -79,7 +79,8 @@ export function HeroSlider({ initialSlides = [] }: { initialSlides?: StoreSlide[
           <div
             key={sl.id}
             dir="rtl"
-            className="w-full shrink-0 bg-gradient-to-br from-[#f0ece1] to-[#e9f1ea] px-6 py-10 sm:px-10 sm:py-14 lg:px-16"
+            className="w-full shrink-0 px-6 py-10 sm:px-10 sm:py-14 lg:px-16"
+            style={{ background: `linear-gradient(135deg, ${sl.from || "#f0ece1"}, ${sl.to || sl.from || "#e9f1ea"})` }}
           >
             <div className="mx-auto grid w-full max-w-[1280px] items-center gap-8 md:grid-cols-[1.1fr_0.9fr]">
               <div className="text-center md:text-right">

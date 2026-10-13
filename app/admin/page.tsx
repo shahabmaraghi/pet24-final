@@ -43,9 +43,11 @@ const postSchema = z.object({
   ),
 });
 type PostFormData = z.infer<typeof postSchema>;
+const SLIDE_COLORS = ["#f0ece1", "#e9f1ea", "#dceee3", "#e8e4f4", "#dceaf6", "#f6ead2", "#f3e2e2", "#ffffff"];
 const slideSchema = z.object({
   title: z.string().min(2, "عنوان اسلاید را وارد کنید"),
   subtitle: z.string().min(2, "زیرعنوان را وارد کنید"),
+  background: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, "رنگ معتبر انتخاب کنید"),
 });
 type SlideFormData = z.infer<typeof slideSchema>;
 const faqSchema = z.object({
@@ -155,7 +157,7 @@ export default function AdminPage() {
           id: String(item.id || item._id),
           title: String(item.title),
           subtitle: String(item.subtitle || ""),
-          tint: String(item.from || "#2f7d4f"),
+          tint: String(item.from || "#f0ece1"),
           image: String(item.image || ""),
         })));
       })
@@ -264,7 +266,7 @@ export default function AdminPage() {
   const [slideBusy, setSlideBusy] = React.useState(false);
   const [slideError, setSlideError] = React.useState("");
   const [slideImage, setSlideImage] = React.useState("");
-  const slideForm = useForm<SlideFormData>({ resolver: zodResolver(slideSchema), defaultValues: { title: "", subtitle: "" } });
+  const slideForm = useForm<SlideFormData>({ resolver: zodResolver(slideSchema), defaultValues: { title: "", subtitle: "", background: "#f0ece1" } });
   const [faqs, setFaqs] = React.useState<AdminFaq[]>([]);
   const [editingFaqId, setEditingFaqId] = React.useState<string | null | undefined>(undefined);
   const [faqBusy, setFaqBusy] = React.useState(false);
@@ -449,12 +451,12 @@ export default function AdminPage() {
   const startAddSlide = () => {
     setEditingSlideId(null);
     setSlideImage("");
-    slideForm.reset({ title: "", subtitle: "" });
+    slideForm.reset({ title: "", subtitle: "", background: "#f0ece1" });
   };
   const startEditSlide = (slide: AdminSlide) => {
     setEditingSlideId(slide.id);
     setSlideImage(slide.image || "");
-    slideForm.reset({ title: slide.title, subtitle: slide.subtitle });
+    slideForm.reset({ title: slide.title, subtitle: slide.subtitle, background: slide.tint || "#f0ece1" });
   };
   const saveSlide = async (data: SlideFormData) => {
     setSlideBusy(true);
@@ -468,8 +470,8 @@ export default function AdminPage() {
           image: slideImage,
           tag: "ویژه",
           catId: categories.find((c) => c.active)?.id || categories[0]?.id || "dog",
-          from: "#2f7d4f",
-          to: "#1f4d38",
+          from: data.background,
+          to: data.background,
         }),
       });
       const saved = await res.json();
@@ -481,7 +483,7 @@ export default function AdminPage() {
         id: String(saved.id || saved._id),
         title: String(saved.title),
         subtitle: String(saved.subtitle || ""),
-        tint: String(saved.from || "#2f7d4f"),
+        tint: String(saved.from || data.background || "#f0ece1"),
         image: String(saved.image || slideImage),
       };
       setSlideImage("");
@@ -910,6 +912,36 @@ export default function AdminPage() {
                     <Input {...slideForm.register("subtitle")} placeholder="زیرعنوان" />
                     {slideForm.formState.errors.subtitle && <span className="text-xs text-destructive">{slideForm.formState.errors.subtitle.message}</span>}
                   </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>رنگ پس‌زمینه</Label>
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <input
+                        type="color"
+                        value={slideForm.watch("background") || "#f0ece1"}
+                        onChange={(event) => slideForm.setValue("background", event.target.value, { shouldValidate: true })}
+                        className="h-10 w-14 cursor-pointer rounded-md border bg-background p-1"
+                        aria-label="رنگ پس‌زمینه اسلاید"
+                      />
+                      <Input {...slideForm.register("background")} dir="ltr" className="max-w-[140px] font-mono text-sm" placeholder="#f0ece1" />
+                      {SLIDE_COLORS.map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          onClick={() => slideForm.setValue("background", color, { shouldValidate: true })}
+                          className="h-8 w-8 rounded-full border"
+                          style={{ background: color, outline: slideForm.watch("background") === color ? "2px solid var(--primary)" : undefined }}
+                          aria-label={color}
+                        />
+                      ))}
+                    </div>
+                    {slideForm.formState.errors.background && <span className="text-xs text-destructive">{slideForm.formState.errors.background.message}</span>}
+                    <div
+                      className="mt-1 rounded-xl border px-4 py-3 text-sm text-muted-foreground"
+                      style={{ background: slideForm.watch("background") || "#f0ece1" }}
+                    >
+                      پیش‌نمایش پس‌زمینه اسلاید
+                    </div>
+                  </div>
                   <div className="flex gap-2.5">
                     <Button type="submit" disabled={slideBusy} className="font-bold">ذخیره</Button>
                     <Button type="button" variant="outline" onClick={() => setEditingSlideId(undefined)}>انصراف</Button>
@@ -924,6 +956,7 @@ export default function AdminPage() {
                     ) : (
                       <div className="h-14 w-20 shrink-0 rounded-lg" style={{ background: sl.tint }} />
                     )}
+                    <div className="h-8 w-8 shrink-0 rounded-full border" style={{ background: sl.tint }} title={sl.tint} />
                     <div className="flex-1"><div className="text-sm font-bold">{sl.title}</div><div className="text-xs text-muted-foreground">{sl.subtitle}</div></div>
                     <button onClick={() => startEditSlide(sl)} className="text-[13px] font-semibold text-primary">ویرایش</button>
                     <button

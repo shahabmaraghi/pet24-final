@@ -18,8 +18,8 @@ export function serializeSlide(doc: any): StoreSlide {
     tag: String(obj.tag || "ویژه"),
     title: String(obj.title ?? ""),
     subtitle: String(obj.subtitle ?? ""),
-    from: String(obj.from || "#3f7a5c"),
-    to: String(obj.to || "#1f4d38"),
+    from: String(obj.from || "#f0ece1"),
+    to: String(obj.to || obj.from || "#e9f1ea"),
     image: obj.image ? String(obj.image) : "",
     order: Number(obj.order || 0),
   };
