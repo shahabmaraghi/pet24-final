@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 
+/** Pet24 apple-touch icon */
 export const size = { width: 180, height: 180 };
 export const contentType = "image/png";
 
