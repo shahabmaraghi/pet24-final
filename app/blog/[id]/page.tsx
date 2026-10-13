@@ -1,8 +1,26 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { BlogPostView } from "@/components/blog-post-view";
 import { getStoreBlogPost } from "@/lib/get-store-blog";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const post = await getStoreBlogPost(id).catch(() => null);
+  if (!post) return { title: "مطلب پیدا نشد", robots: { index: false, follow: true } };
+  return {
+    title: post.title,
+    description: post.excerpt || post.title,
+    alternates: { canonical: `/blog/${post.id}` },
+    openGraph: {
+      title: post.title,
+      description: post.excerpt || post.title,
+      type: "article",
+      images: post.coverImage ? [{ url: post.coverImage }] : undefined,
+    },
+  };
+}
 
 export default async function BlogPostPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

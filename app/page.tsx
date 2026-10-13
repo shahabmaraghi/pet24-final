@@ -10,8 +10,15 @@ import { getStoreSlides } from "@/lib/get-store-slides";
 import { getStoreFaqs } from "@/lib/get-store-faq";
 import { HomeFaq } from "@/components/home-faq";
 import { HomeAccountCta } from "@/components/home-account-cta";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: { absolute: "pet24 - پلتفرم جامع pet" },
+  description: "فروشگاه آنلاین غذا، دارو، اسباب‌بازی و لوازم حیوانات خانگی با ارسال سریع در سراسر ایران.",
+  alternates: { canonical: "/" },
+};
 
 export default async function HomePage() {
   const [categories, featured, discounted, blogPosts, slides, faqs] = await Promise.all([

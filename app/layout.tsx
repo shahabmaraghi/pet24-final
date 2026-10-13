@@ -2,13 +2,26 @@ import type { Metadata } from "next";
 import { CartProvider } from "@/lib/cart-store";
 import { SiteChrome } from "@/components/site-chrome";
 import { AuthProvider } from "@/components/auth-provider";
+import { siteUrl } from "@/lib/site";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "pet24 - پلتفرم جامع pet",
+  metadataBase: new URL(siteUrl()),
+  title: {
+    default: "pet24 - پلتفرم جامع pet",
+    template: "%s | pet24",
+  },
   description: "فروشگاه آنلاین لوازم و غذای حیوانات خانگی",
+  robots: { index: true, follow: true },
+  openGraph: {
+    type: "website",
+    locale: "fa_IR",
+    siteName: "Pet24",
+    title: "pet24 - پلتفرم جامع pet",
+    description: "فروشگاه آنلاین لوازم و غذای حیوانات خانگی",
+  },
   icons: {
     icon: [
       { url: "/favicon.svg", type: "image/svg+xml" },

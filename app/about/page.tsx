@@ -1,5 +1,12 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { HeartHandshake, ShieldCheck, Truck } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "درباره ما",
+  description: "آشنایی با Pet24، فروشگاه آنلاین لوازم و غذای حیوانات خانگی.",
+  alternates: { canonical: "/about" },
+};
 
 const STATS = [
   { value: "+۵۰,۰۰۰", label: "مشتری راضی" },
