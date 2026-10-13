@@ -21,7 +21,7 @@ export function FeaturedProductsCarousel({
     let cancelled = false;
 
     const setup = async () => {
-      const jqueryModule = await import("jquery/dist/jquery.js");
+      const jqueryModule = await import("jquery");
       const jQuery = (jqueryModule.default ?? jqueryModule) as JQueryStatic;
       window.$ = window.jQuery = jQuery;
       await import("owl.carousel");
