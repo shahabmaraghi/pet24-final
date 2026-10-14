@@ -1,10 +1,13 @@
 export type Category = { id: string; name: string; tint: string };
+export type ProductBrand = { id: string; name: string; nameFa: string; logo: string };
 export type Product = {
   id: string | number; name: string; categoryId: string; type: string; price: number;
   oldPrice?: number; badge?: string; featured?: boolean; desc: string;
   specs: { k: string; v: string }[];
   stock?: number;
   images?: string[];
+  brandId?: string;
+  brand?: ProductBrand;
 };
 
 export const CATEGORIES: Category[] = [
@@ -82,4 +85,6 @@ export function fmt(n: number) {
   return n.toLocaleString('fa-IR');
 }
 export function getProduct(id: string | number) { return PRODUCTS.find((p) => String(p.id) === String(id)); }
-export function getCategory(id: string) { return CATEGORIES.find((c) => c.id === id); }
+export function getCategory(id: string) {
+  return CATEGORIES.find((c) => c.id === id || c.name === id);
+}

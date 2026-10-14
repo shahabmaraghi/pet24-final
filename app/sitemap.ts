@@ -3,6 +3,7 @@ import { withMongoRetry } from "@/lib/db";
 import Product from "@/lib/models/Product";
 import BlogPost from "@/lib/models/BlogPost";
 import { getStoreCategories } from "@/lib/get-store-categories";
+import { getStoreBrands } from "@/lib/get-store-brands";
 import { siteUrl } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
@@ -18,8 +19,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   try {
-    const [categories, products, posts] = await Promise.all([
+    const [categories, brands, products, posts] = await Promise.all([
       getStoreCategories().catch(() => []),
+      getStoreBrands().catch(() => []),
       withMongoRetry(async () => Product.find().select("_id updatedAt").sort({ updatedAt: -1 }).limit(1000).lean()),
       withMongoRetry(async () => BlogPost.find().select("_id updatedAt").sort({ updatedAt: -1 }).limit(200).lean()),
     ]);
@@ -30,6 +32,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         lastModified: now,
         changeFrequency: "weekly",
         priority: 0.8,
+      });
+    }
+
+    for (const brand of brands) {
+      pages.push({
+        url: `${base}/brand/${brand.id}`,
+        lastModified: now,
+        changeFrequency: "weekly",
+        priority: 0.7,
       });
     }
 

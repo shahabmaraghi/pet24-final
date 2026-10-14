@@ -1,3 +1,5 @@
+import { canonicalCategoryId } from "@/lib/category-id";
+
 const ICONS: Record<string, string> = {
   dog: "M4 10c0-2 1.5-4 4-4l1 2h6l1-2c2.5 0 4 2 4 4v3c0 4-3.5 7-8 7s-8-3-8-7z",
   cat: "M6 4l1.5 4h9L18 4l1 6v6a6 6 0 01-6 6h0a6 6 0 01-6-6v-6z",
@@ -8,8 +10,9 @@ const ICONS: Record<string, string> = {
 };
 
 export function CategoryIcon({ id, size = 24 }: { id: string; size?: number }) {
+  const key = canonicalCategoryId(id);
   const common = { viewBox: "0 0 24 24", fill: "none", stroke: "#fff", strokeWidth: 1.6, style: { width: size, height: size } };
-  if (id === "dog")
+  if (key === "dog")
     return (
       <svg {...common}>
         <path d={ICONS.dog} />
@@ -18,7 +21,7 @@ export function CategoryIcon({ id, size = 24 }: { id: string; size?: number }) {
         <path d="M12 14v1.5" />
       </svg>
     );
-  if (id === "cat")
+  if (key === "cat")
     return (
       <svg {...common}>
         <path d={ICONS.cat} />
@@ -26,7 +29,7 @@ export function CategoryIcon({ id, size = 24 }: { id: string; size?: number }) {
         <circle cx="14.5" cy="13" r="0.8" fill="#fff" />
       </svg>
     );
-  if (id === "rabbit")
+  if (key === "rabbit")
     return (
       <svg {...common}>
         <path d="M9 9c-1-3-1-6 .5-7 1 1.5 1.2 4 1 6" />
@@ -36,14 +39,14 @@ export function CategoryIcon({ id, size = 24 }: { id: string; size?: number }) {
         <circle cx="14" cy="14" r="0.7" fill="#fff" />
       </svg>
     );
-  if (id === "birds")
+  if (key === "birds")
     return (
       <svg {...common}>
         <path d={ICONS.birds} />
         <circle cx="14" cy="9" r="0.6" fill="#fff" />
       </svg>
     );
-  if (id === "fish")
+  if (key === "fish")
     return (
       <svg {...common}>
         <path d={ICONS.fish} />
@@ -51,7 +54,7 @@ export function CategoryIcon({ id, size = 24 }: { id: string; size?: number }) {
         <circle cx="8" cy="11" r="0.6" fill="#fff" />
       </svg>
     );
-  if (id === "rodents")
+  if (key === "rodents")
     return (
       <svg {...common}>
         <ellipse cx="11" cy="14" rx="7" ry="5.5" />
@@ -60,7 +63,7 @@ export function CategoryIcon({ id, size = 24 }: { id: string; size?: number }) {
         <path d="M6 10.5c-.8-1-1-2.3-.5-3" />
       </svg>
     );
-  if (id === "accessories")
+  if (key === "accessories")
     return (
       <svg {...common}>
         <circle cx="12" cy="12" r="8" />

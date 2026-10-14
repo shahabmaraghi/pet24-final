@@ -6,7 +6,7 @@ import { signOut, useSession } from "next-auth/react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { LayoutGrid, Package, Tag, GalleryHorizontal, ClipboardList, Users, LogOut, Menu, MessageSquare, PawPrint, CircleHelp } from "lucide-react";
+import { LayoutGrid, Package, Tag, GalleryHorizontal, ClipboardList, Users, LogOut, Menu, MessageSquare, PawPrint, CircleHelp, Award } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ import { BREED_SIZES, breedSizeLabel, type StoreBreed } from "@/lib/store-breed"
 const productSchema = z.object({
   name: z.string().min(2, "نام محصول را وارد کنید"),
   category: z.string().min(1, "دسته‌بندی را انتخاب کنید"),
+  brand: z.string().optional(),
   price: z.coerce.number().min(1, "قیمت معتبر وارد کنید"),
   stock: z.coerce.number().min(0, "موجودی معتبر وارد کنید"),
 });
@@ -57,11 +58,19 @@ const faqSchema = z.object({
   active: z.boolean(),
 });
 type FaqFormData = z.infer<typeof faqSchema>;
+const brandSchema = z.object({
+  name: z.string().min(2, "نام برند را وارد کنید"),
+  nameFa: z.string().optional(),
+  order: z.coerce.number().min(0),
+  active: z.boolean(),
+});
+type BrandFormData = z.infer<typeof brandSchema>;
 
 const TABS = [
   { id: "dashboard", label: "داشبورد", Icon: LayoutGrid },
   { id: "products", label: "محصولات", Icon: Package },
   { id: "categories", label: "دسته‌بندی‌ها", Icon: Tag },
+  { id: "brands", label: "برندها", Icon: Award },
   { id: "breeds", label: "نژادها", Icon: PawPrint },
   { id: "slider", label: "اسلایدر", Icon: GalleryHorizontal },
   { id: "faq", label: "سؤالات متداول", Icon: CircleHelp },
@@ -73,10 +82,11 @@ const TABS = [
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
-type AdminProduct = { id: string; name: string; categoryId: string; category: string; price: number; stock: number; images: string[] };
+type AdminProduct = { id: string; name: string; categoryId: string; category: string; brandId: string; price: number; stock: number; images: string[] };
 type AdminPost = { id: string; title: string; category: string; author: string; date: string; excerpt: string; paragraphs: string[]; content?: string; coverImage?: string };
 type AdminSlide = { id: string; title: string; subtitle: string; tint: string; image?: string };
 type AdminFaq = { id: string; question: string; answer: string; order: number; active: boolean };
+type AdminBrand = { id: string; name: string; nameFa: string; logo: string; order: number; active: boolean };
 type AdminComment = { id: string; name: string; text: string; status: "approved" | "pending" | "rejected"; postTitle: string };
 type AdminReview = { id: string; name: string; text: string; rating: number; status: "approved" | "pending" | "rejected"; productName: string };
 type AdminOrder = { id: string; customer: string; userId: string; total: number; date: string; status: string };
@@ -121,11 +131,12 @@ export default function AdminPage() {
       .then((res) => (res.ok ? res.json() : { items: [] }))
       .then((data) => {
         const items = Array.isArray(data.items) ? data.items : [];
-        setProducts(items.map((item: { id: string; name: string; categoryId: string; price: number; stock?: number; images?: string[] }) => ({
+        setProducts(items.map((item: { id: string; name: string; categoryId: string; brandId?: string; price: number; stock?: number; images?: string[] }) => ({
           id: String(item.id),
           name: String(item.name),
           categoryId: String(item.categoryId),
           category: "",
+          brandId: String(item.brandId || ""),
           price: Number(item.price),
           stock: Number(item.stock ?? 0),
           images: Array.isArray(item.images) ? item.images.map(String) : [],
@@ -242,6 +253,20 @@ export default function AdminPage() {
         })));
       })
       .catch(() => {});
+    fetch("/api/brands?all=true", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((items) => {
+        if (!Array.isArray(items)) return;
+        setBrands(items.map((item: AdminBrand) => ({
+          id: String(item.id),
+          name: String(item.name || ""),
+          nameFa: String(item.nameFa || ""),
+          logo: String(item.logo || ""),
+          order: Number(item.order || 0),
+          active: item.active !== false,
+        })));
+      })
+      .catch(() => {});
     fetch("/api/breeds?all=true", { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : []))
       .then((items) => {
@@ -255,7 +280,7 @@ export default function AdminPage() {
   const [productBusy, setProductBusy] = React.useState(false);
   const [productError, setProductError] = React.useState("");
   const [productImages, setProductImages] = React.useState<string[]>([]);
-  const productForm = useForm<ProductFormData>({ resolver: zodResolver(productSchema), defaultValues: { name: "", category: "", price: 0, stock: 0 } });
+  const productForm = useForm<ProductFormData>({ resolver: zodResolver(productSchema), defaultValues: { name: "", category: "", brand: "none", price: 0, stock: 0 } });
   const [categories, setCategories] = React.useState<{ id: string; name: string; active: boolean }[]>([]);
   const [newCategoryName, setNewCategoryName] = React.useState("");
   const [categoryBusy, setCategoryBusy] = React.useState(false);
@@ -274,6 +299,15 @@ export default function AdminPage() {
   const faqForm = useForm<FaqFormData>({
     resolver: zodResolver(faqSchema),
     defaultValues: { question: "", answer: "", order: 0, active: true },
+  });
+  const [brands, setBrands] = React.useState<AdminBrand[]>([]);
+  const [editingBrandId, setEditingBrandId] = React.useState<string | null | undefined>(undefined);
+  const [brandBusy, setBrandBusy] = React.useState(false);
+  const [brandError, setBrandError] = React.useState("");
+  const [brandLogo, setBrandLogo] = React.useState("");
+  const brandForm = useForm<BrandFormData>({
+    resolver: zodResolver(brandSchema),
+    defaultValues: { name: "", nameFa: "", order: 0, active: true },
   });
   const [orders, setOrders] = React.useState<AdminOrder[]>([]);
   const [orderError, setOrderError] = React.useState("");
@@ -309,7 +343,7 @@ export default function AdminPage() {
   const startAddProduct = () => {
     const defaultCategory = categories.find((c) => c.active)?.id || categories[0]?.id || "";
     setEditingId(null);
-    productForm.reset({ name: "", category: defaultCategory, price: 0, stock: 0 });
+    productForm.reset({ name: "", category: defaultCategory, brand: "none", price: 0, stock: 0 });
     setProductImages([]);
   };
   const setCategoryActive = async (id: string, active: boolean) => {
@@ -336,14 +370,24 @@ export default function AdminPage() {
   };
   const startEditProduct = (p: AdminProduct) => {
     setEditingId(p.id);
-    productForm.reset({ name: p.name, category: p.categoryId, price: p.price, stock: p.stock });
+    productForm.reset({ name: p.name, category: p.categoryId, brand: p.brandId || "none", price: p.price, stock: p.stock });
     setProductImages(p.images || []);
   };
   const saveProduct = async (data: ProductFormData) => {
     setProductBusy(true);
     setProductError("");
     try {
-      const payload = { name: data.name, categoryId: data.category, price: data.price, stock: data.stock, featured: true, desc: "", type: "عمومی", images: productImages };
+      const payload = {
+        name: data.name,
+        categoryId: data.category,
+        brandId: data.brand && data.brand !== "none" ? data.brand : "",
+        price: data.price,
+        stock: data.stock,
+        featured: true,
+        desc: "",
+        type: "عمومی",
+        images: productImages,
+      };
       const res = await fetch(editingId ? `/api/products/${editingId}` : "/api/products", {
         method: editingId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -359,6 +403,7 @@ export default function AdminPage() {
         name: String(saved.name),
         categoryId: String(saved.categoryId),
         category: categories.find((c) => c.id === saved.categoryId)?.name || "",
+        brandId: String(saved.brandId || saved.brand?.id || ""),
         price: Number(saved.price),
         stock: Number(saved.stock ?? 0),
         images: Array.isArray(saved.images) ? saved.images.map(String) : productImages,
@@ -539,6 +584,53 @@ export default function AdminPage() {
     }
   };
 
+  const startAddBrand = () => {
+    setEditingBrandId(null);
+    setBrandLogo("");
+    brandForm.reset({ name: "", nameFa: "", order: brands.length + 1, active: true });
+  };
+  const startEditBrand = (brand: AdminBrand) => {
+    setEditingBrandId(brand.id);
+    setBrandLogo(brand.logo || "");
+    brandForm.reset({ name: brand.name, nameFa: brand.nameFa || "", order: brand.order, active: brand.active });
+  };
+  const saveBrand = async (data: BrandFormData) => {
+    setBrandBusy(true);
+    setBrandError("");
+    try {
+      const res = await fetch(editingBrandId ? `/api/brands/${editingBrandId}` : "/api/brands", {
+        method: editingBrandId ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...data, logo: brandLogo }),
+      });
+      const saved = await res.json();
+      if (!res.ok) {
+        setBrandError(saved.error || "ذخیره برند انجام نشد.");
+        return;
+      }
+      const rec: AdminBrand = {
+        id: String(saved.id),
+        name: String(saved.name || data.name),
+        nameFa: String(saved.nameFa || data.nameFa || ""),
+        logo: String(saved.logo || brandLogo),
+        order: Number(saved.order ?? data.order),
+        active: saved.active !== false,
+      };
+      setBrands((current) => {
+        const next = current.some((item) => item.id === rec.id)
+          ? current.map((item) => (item.id === rec.id ? rec : item))
+          : [...current, rec];
+        return next.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, "en"));
+      });
+      setBrandLogo("");
+      setEditingBrandId(undefined);
+    } catch {
+      setBrandError("ذخیره برند انجام نشد.");
+    } finally {
+      setBrandBusy(false);
+    }
+  };
+
   const NavList = ({ onNavigate }: { onNavigate?: () => void }) => (
     <>
       <div className="mb-5 flex items-center gap-2.5 px-1">
@@ -548,7 +640,7 @@ export default function AdminPage() {
       {TABS.map((t) => (
         <button
           key={t.id}
-          onClick={() => { setTab(t.id); setEditingId(undefined); setEditingPostId(undefined); setEditingSlideId(undefined); setEditingFaqId(undefined); onNavigate?.(); }}
+          onClick={() => { setTab(t.id); setEditingId(undefined); setEditingPostId(undefined); setEditingSlideId(undefined); setEditingFaqId(undefined); setEditingBrandId(undefined); onNavigate?.(); }}
           className={`flex items-center gap-2.5 rounded-[10px] px-3.5 py-3 text-sm font-semibold ${tab === t.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"}`}
         >
           <t.Icon className="h-[17px] w-[17px] shrink-0" strokeWidth={1.8} />{t.label}
@@ -627,6 +719,18 @@ export default function AdminPage() {
                     {productForm.formState.errors.category && <span className="text-xs text-destructive">{productForm.formState.errors.category.message}</span>}
                   </div>
                   <div className="flex flex-col gap-1.5">
+                    <Label>برند</Label>
+                    <Select value={productForm.watch("brand") || "none"} onValueChange={(v) => productForm.setValue("brand", v)}>
+                      <SelectTrigger><SelectValue placeholder="انتخاب برند" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">بدون برند</SelectItem>
+                        {brands.filter((b) => b.active || b.id === productForm.watch("brand")).map((b) => (
+                          <SelectItem key={b.id} value={b.id}>{b.nameFa ? `${b.nameFa} — ${b.name}` : b.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
                     <Label>قیمت (تومان)</Label>
                     <Input type="number" {...productForm.register("price")} placeholder="قیمت (تومان)" />
                     {productForm.formState.errors.price && <span className="text-xs text-destructive">{productForm.formState.errors.price.message}</span>}
@@ -641,14 +745,18 @@ export default function AdminPage() {
               )}
               <div className="rounded-2xl border bg-card">
                 <Table>
-                  <TableHeader><TableRow><TableHead>تصویر</TableHead><TableHead>نام</TableHead><TableHead>دسته</TableHead><TableHead>قیمت</TableHead><TableHead>موجودی</TableHead><TableHead></TableHead></TableRow></TableHeader>
+                  <TableHeader><TableRow><TableHead>تصویر</TableHead><TableHead>نام</TableHead><TableHead>دسته</TableHead><TableHead>برند</TableHead><TableHead>قیمت</TableHead><TableHead>موجودی</TableHead><TableHead></TableHead></TableRow></TableHeader>
                   <TableBody>
                     {products.map((p) => (
                       <TableRow key={p.id}>
                         <TableCell>
                           <ProductImage src={p.images[0]} alt={p.name} className="h-11 w-11 rounded-lg" />
                         </TableCell>
-                        <TableCell>{p.name}</TableCell><TableCell>{categories.find((c) => c.id === p.categoryId)?.name || p.category}</TableCell><TableCell>{fmt(p.price)}</TableCell><TableCell>{p.stock}</TableCell>
+                        <TableCell>{p.name}</TableCell>
+                        <TableCell>{categories.find((c) => c.id === p.categoryId)?.name || p.category}</TableCell>
+                        <TableCell>{brands.find((b) => b.id === p.brandId)?.nameFa || brands.find((b) => b.id === p.brandId)?.name || "—"}</TableCell>
+                        <TableCell>{fmt(p.price)}</TableCell>
+                        <TableCell>{p.stock}</TableCell>
                         <TableCell className="whitespace-nowrap">
                           <button onClick={() => startEditProduct(p)} className="ml-3.5 font-semibold text-primary">ویرایش</button>
                           <button
@@ -762,6 +870,117 @@ export default function AdminPage() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+            </>
+          )}
+
+          {tab === "brands" && (
+            <>
+              <div className="mb-5 flex items-center justify-between">
+                <h1 className="text-[22px] font-extrabold text-primary">برندها</h1>
+                <Button type="button" onClick={startAddBrand} className="font-bold">افزودن برند</Button>
+              </div>
+              <p className="mb-5 text-sm text-muted-foreground">برندهای غذا و لوازم حیوانات خانگی را اینجا تعریف کنید. می‌توانید برند جدید اضافه کنید، ویرایش کنید یا حذف نمایید.</p>
+              {brandError && <p className="mb-3 text-sm text-destructive">{brandError}</p>}
+              {editingBrandId !== undefined && (
+                <form onSubmit={brandForm.handleSubmit(saveBrand)} className="mb-5 flex flex-col gap-3 rounded-2xl border bg-card p-5">
+                  <ImageUploader
+                    values={brandLogo ? [brandLogo] : []}
+                    onChange={(urls) => setBrandLogo(urls[0] || "")}
+                    max={1}
+                    folder="brands"
+                    label="لوگوی برند (اختیاری)"
+                    disabled={brandBusy}
+                  />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="flex flex-col gap-1.5">
+                      <Label>نام انگلیسی</Label>
+                      <Input {...brandForm.register("name")} placeholder="مثلاً Royal Canin" dir="ltr" className="text-left" />
+                      {brandForm.formState.errors.name && <span className="text-xs text-destructive">{brandForm.formState.errors.name.message}</span>}
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label>نام فارسی</Label>
+                      <Input {...brandForm.register("nameFa")} placeholder="مثلاً رویال کنین" />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <Label>ترتیب نمایش</Label>
+                      <Input type="number" min="0" className="w-28" {...brandForm.register("order")} />
+                    </div>
+                    <label className="mt-5 flex items-center gap-2 text-sm font-semibold">
+                      <input type="checkbox" {...brandForm.register("active")} />
+                      فعال
+                    </label>
+                  </div>
+                  <div className="flex gap-2.5">
+                    <Button type="submit" disabled={brandBusy} className="font-bold">ذخیره</Button>
+                    <Button type="button" variant="outline" onClick={() => setEditingBrandId(undefined)}>انصراف</Button>
+                  </div>
+                </form>
+              )}
+              <div className="rounded-2xl border bg-card">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>لوگو</TableHead>
+                      <TableHead>برند</TableHead>
+                      <TableHead>نام فارسی</TableHead>
+                      <TableHead>ترتیب</TableHead>
+                      <TableHead>وضعیت</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {brands.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-sm text-muted-foreground">هنوز برندی ثبت نشده است.</TableCell>
+                      </TableRow>
+                    )}
+                    {brands.map((brand) => (
+                      <TableRow key={brand.id}>
+                        <TableCell>
+                          {brand.logo ? (
+                            <img src={brand.logo} alt={brand.name} className="h-12 w-[88px] rounded-lg border bg-white object-contain p-1" />
+                          ) : (
+                            <div className="flex h-12 w-[88px] items-center justify-center rounded-lg border text-[11px] text-muted-foreground">—</div>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-semibold" dir="ltr">{brand.name}</TableCell>
+                        <TableCell>{brand.nameFa || "—"}</TableCell>
+                        <TableCell>{brand.order.toLocaleString("fa-IR")}</TableCell>
+                        <TableCell>{brand.active ? "فعال" : "مخفی"}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-3">
+                            <button type="button" onClick={() => startEditBrand(brand)} className="text-[13px] font-semibold text-primary">ویرایش</button>
+                            <button
+                              type="button"
+                              disabled={brandBusy}
+                              className="text-[13px] font-semibold text-destructive"
+                              onClick={async () => {
+                                if (!window.confirm(`برند «${brand.name}» حذف شود؟`)) return;
+                                setBrandBusy(true);
+                                setBrandError("");
+                                try {
+                                  const res = await fetch(`/api/brands/${brand.id}`, { method: "DELETE" });
+                                  if (!res.ok) {
+                                    setBrandError("حذف برند انجام نشد.");
+                                    return;
+                                  }
+                                  setBrands((current) => current.filter((item) => item.id !== brand.id));
+                                } catch {
+                                  setBrandError("حذف برند انجام نشد.");
+                                } finally {
+                                  setBrandBusy(false);
+                                }
+                              }}
+                            >حذف</button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </>
           )}
 

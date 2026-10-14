@@ -3,11 +3,13 @@ import * as React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProductCard } from "@/components/product-card";
+import { decodeCategoryParam } from "@/lib/category-id";
 import { getCategory, type Category } from "@/lib/data";
 import { useStoreProducts } from "@/lib/use-store-products";
 
 export default function CategoryPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = React.use(params);
+  const { id: rawId } = React.use(params);
+  const id = decodeCategoryParam(rawId);
   const all = useStoreProducts({ categoryId: id });
   const [category, setCategory] = React.useState<Category | null | "loading">("loading");
   const [typeFilter, setTypeFilter] = React.useState<string | null>(null);

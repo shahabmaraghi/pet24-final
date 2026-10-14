@@ -16,6 +16,7 @@ import { getCategory, fmt, type Product } from "@/lib/data";
 import { useCart } from "@/lib/cart-store";
 import { serializeProduct } from "@/lib/store-product";
 import { ProductImageSlider } from "@/components/product-image-slider";
+import { ProductBrandMark } from "@/components/product-brand";
 import { TrackRecentlyViewed } from "@/components/track-recently-viewed";
 
 const reviewSchema = z.object({
@@ -157,6 +158,11 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
         <ProductImageSlider images={images} alt={product.name} />
         <div>
           <div className="mb-2 text-[13px] font-bold text-primary">{category.name}</div>
+          {product.brand ? (
+            <Link href={`/brand/${product.brand.id}`} className="mb-4 inline-block">
+              <ProductBrandMark brand={product.brand} size="lg" />
+            </Link>
+          ) : null}
           <h1 className="mb-3 text-[28px] font-extrabold">{product.name}</h1>
           <div className="mb-5 flex items-center gap-2 text-[14px]">
             <StarRating rating={rating} size={16} />

@@ -2,8 +2,10 @@ import Link from "next/link";
 import { Truck, ShieldCheck, BadgeCheck, Calendar, User as UserIcon, ChevronLeft } from "lucide-react";
 import { HeroSlider } from "@/components/hero-slider";
 import { FeaturedProductsCarousel } from "@/components/featured-products-carousel";
+import { HomeBrandsCarousel } from "@/components/home-brands-carousel";
 import { CategoryIcon } from "@/components/category-icon";
 import { getStoreCategories } from "@/lib/get-store-categories";
+import { getStoreBrands } from "@/lib/get-store-brands";
 import { getStoreProducts } from "@/lib/get-store-products";
 import { getStoreBlogPosts } from "@/lib/get-store-blog";
 import { getStoreSlides } from "@/lib/get-store-slides";
@@ -21,8 +23,9 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const [categories, featured, discounted, blogPosts, slides, faqs] = await Promise.all([
+  const [categories, brands, featured, discounted, blogPosts, slides, faqs] = await Promise.all([
     getStoreCategories().catch(() => []),
+    getStoreBrands().catch(() => []),
     getStoreProducts({ featured: true }).catch(() => []),
     getStoreProducts({ discounted: true }).catch(() => []),
     getStoreBlogPosts(8).catch(() => []),
@@ -64,6 +67,13 @@ export default async function HomePage() {
         <h2 className="mb-5 text-[22px] font-extrabold text-primary">تخفیف‌ها</h2>
         <FeaturedProductsCarousel products={discounted} emptyMessage="در حال حاضر محصول تخفیف‌داری وجود ندارد." />
       </section>
+
+      {brands.length > 0 && (
+      <section id="brands" className="mb-12 scroll-mt-28">
+        <h2 className="mb-5 text-[22px] font-extrabold text-primary">برندها</h2>
+        <HomeBrandsCarousel brands={brands} />
+      </section>
+      )}
 
       <HomeAccountCta />
 

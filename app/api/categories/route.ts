@@ -3,18 +3,20 @@ import { dbConnect, withMongoRetry } from "@/lib/db";
 import Category from "@/lib/models/Category";
 import { requireAdmin } from "@/lib/api-helpers";
 import { categoryIdFromName } from "@/lib/category-id";
+import { ensureCategories } from "@/lib/ensure-categories";
 import { ACTIVE_CATEGORY_FILTER, serializeCategory } from "@/lib/store-category";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const includeInactive = searchParams.get("all") === "true";
   try {
-    const items = await withMongoRetry(async () =>
-      Category.collection
+    const items = await withMongoRetry(async () => {
+      await ensureCategories();
+      return Category.collection
         .find(includeInactive ? {} : ACTIVE_CATEGORY_FILTER)
         .sort({ name: 1 })
-        .toArray()
-    );
+        .toArray();
+    });
     return NextResponse.json(items.map(serializeCategory), { headers: { "Cache-Control": "no-store" } });
   } catch (lastError) {
     console.error("GET /api/categories failed", lastError);

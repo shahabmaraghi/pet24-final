@@ -6,6 +6,7 @@ const ProductSchema = new Schema(
   {
     name: { type: String, required: true },
     categoryId: { type: String, required: true, index: true },
+    brandId: { type: String, default: "", index: true },
     type: String,
     price: { type: Number, required: true },
     oldPrice: Number,
@@ -19,4 +20,6 @@ const ProductSchema = new Schema(
   { timestamps: true }
 );
 
-export default models.Product || model("Product", ProductSchema);
+if (models.Product) delete models.Product;
+
+export default model("Product", ProductSchema);

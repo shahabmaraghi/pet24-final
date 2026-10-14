@@ -2,17 +2,24 @@ import { NextResponse } from "next/server";
 import { dbConnect, withMongoRetry } from "@/lib/db";
 import Product from "@/lib/models/Product";
 import { requireAdmin } from "@/lib/api-helpers";
-import { serializeProduct } from "@/lib/store-product";
+import { canonicalCategoryId, categoryIdAliases } from "@/lib/category-id";
+import { parseBrandId } from "@/lib/store-product";
+import { serializeProductWithBrand, serializeProducts } from "@/lib/attach-product-brands";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const categoryId = searchParams.get("categoryId");
+  const brandId = parseBrandId(searchParams.get("brandId"));
   const featured = searchParams.get("featured");
   const q = searchParams.get("q");
   const page = Number(searchParams.get("page") || 1);
   const limit = Number(searchParams.get("limit") || 24);
   const filter: Record<string, unknown> = {};
-  if (categoryId) filter.categoryId = categoryId;
+  if (categoryId) {
+    const aliases = categoryIdAliases(categoryId);
+    filter.categoryId = aliases.length > 1 ? { $in: aliases } : aliases[0];
+  }
+  if (brandId) filter.brandId = brandId;
   if (featured) filter.featured = true;
   if (q) filter.name = { $regex: q, $options: "i" };
 
@@ -24,7 +31,7 @@ export async function GET(req: Request) {
       ])
     );
     return NextResponse.json(
-      { items: items.map(serializeProduct), total, page, pages: Math.ceil(total / limit) },
+      { items: await serializeProducts(items), total, page, pages: Math.ceil(total / limit) },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (lastError) {
@@ -43,7 +50,8 @@ export async function POST(req: Request) {
   }
   const product = await Product.create({
     name: String(body.name).trim(),
-    categoryId: String(body.categoryId),
+    categoryId: canonicalCategoryId(String(body.categoryId)),
+    brandId: parseBrandId(body.brandId),
     type: body.type || "عمومی",
     price: Number(body.price),
     oldPrice: body.oldPrice != null ? Number(body.oldPrice) : undefined,
@@ -54,5 +62,5 @@ export async function POST(req: Request) {
     images: Array.isArray(body.images) ? body.images.map(String).filter(Boolean) : [],
     stock: body.stock != null ? Number(body.stock) : 100,
   });
-  return NextResponse.json(serializeProduct(product), { status: 201 });
+  return NextResponse.json(await serializeProductWithBrand(product), { status: 201 });
 }

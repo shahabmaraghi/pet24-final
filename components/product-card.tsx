@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Product, getCategory, fmt } from "@/lib/data";
@@ -7,10 +8,13 @@ import { useCart } from "@/lib/cart-store";
 import { StarRating } from "@/components/star-rating";
 import { baseRating, baseCount } from "@/lib/reviews-store";
 import { ProductImage } from "@/components/product-image";
+import { ProductBrandMark } from "@/components/product-brand";
+import { brandPath } from "@/lib/store-brand";
 
 export function ProductCard({ product }: { product: Product }) {
   const cat = getCategory(product.categoryId);
   const { addToCart } = useCart();
+  const router = useRouter();
   const image = product.images?.[0];
   return (
     <Link
@@ -24,7 +28,29 @@ export function ProductCard({ product }: { product: Product }) {
         )}
       </div>
       <div className="flex flex-1 flex-col gap-3 p-3.5">
-        <div className="text-xs font-bold text-primary">{cat?.name ?? ""}</div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0 text-xs font-bold text-primary">{cat?.name ?? ""}</div>
+          {product.brand ? (
+            <span
+              role="link"
+              tabIndex={0}
+              className="shrink-0 cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                router.push(brandPath(product.brand!.id));
+              }}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter" && e.key !== " ") return;
+                e.preventDefault();
+                e.stopPropagation();
+                router.push(brandPath(product.brand!.id));
+              }}
+            >
+              <ProductBrandMark brand={product.brand} size="md" />
+            </span>
+          ) : null}
+        </div>
         <div className="flex-1 text-sm font-bold leading-relaxed">{product.name}</div>
         <div className="flex items-center gap-1.5">
           <StarRating rating={baseRating(product.id)} size={13} />

@@ -7,7 +7,7 @@ import Pet from "@/lib/models/Pet";
 import Product from "@/lib/models/Product";
 import Breed from "@/lib/models/Breed";
 import { serializePet } from "@/lib/store-pet";
-import { serializeProduct } from "@/lib/store-product";
+import { serializeProducts } from "@/lib/attach-product-brands";
 import { serializeBreed } from "@/lib/store-breed";
 import { ensureBreeds } from "@/lib/ensure-breeds";
 import { buildSuggestionPlan, suggestionCategories, suggestionSearchTerms } from "@/lib/pet-suggestions";
@@ -38,7 +38,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       .sort({ featured: -1, createdAt: -1 })
       .limit(120)
       .maxTimeMS(8000);
-    return NextResponse.json(buildSuggestionPlan(pet, products.map(serializeProduct), catalog));
+    return NextResponse.json(buildSuggestionPlan(pet, await serializeProducts(products), catalog));
   } catch (err) {
     console.error("GET /api/pets/[id]/suggestions failed", err);
     return NextResponse.json({ error: "بارگذاری پیشنهادها انجام نشد." }, { status: 503 });

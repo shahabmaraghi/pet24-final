@@ -13,9 +13,11 @@ import Slide from "../lib/models/Slide";
 import User from "../lib/models/User";
 import Breed from "../lib/models/Breed";
 import Faq from "../lib/models/Faq";
+import Brand from "../lib/models/Brand";
 import { CATEGORIES, PRODUCTS, BLOG_POSTS, SLIDES } from "../lib/data";
 import { SEED_BREEDS, seedBreedDoc } from "../lib/breed-catalog";
 import { SEED_FAQS } from "../lib/store-faq";
+import { SEED_BRANDS } from "../lib/store-brand";
 
 loadEnv({ path: path.join(process.cwd(), ".env") });
 loadEnv({ path: path.join(process.cwd(), ".env.local"), override: true });
@@ -45,6 +47,9 @@ async function seed() {
   await Breed.insertMany(SEED_BREEDS.map(seedBreedDoc));
   if ((await Faq.countDocuments()) === 0) {
     await Faq.insertMany(SEED_FAQS);
+  }
+  if ((await Brand.countDocuments()) === 0) {
+    await Brand.insertMany(SEED_BRANDS);
   }
 
   const adminEmail = process.env.SEED_ADMIN_EMAIL || "admin@pet24.ir";

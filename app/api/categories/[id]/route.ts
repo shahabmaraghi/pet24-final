@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { dbConnect } from "@/lib/db";
 import Category from "@/lib/models/Category";
 import { requireAdmin } from "@/lib/api-helpers";
+import { categoryLookupFilter, decodeCategoryParam } from "@/lib/category-id";
 import { serializeCategory } from "@/lib/store-category";
 
 function slugFilter(id: string) {
-  return { id: decodeURIComponent(id) };
+  return categoryLookupFilter(decodeCategoryParam(id));
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {

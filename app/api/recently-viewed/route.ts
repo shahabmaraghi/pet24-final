@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/api-helpers";
 import { dbConnect } from "@/lib/db";
 import User from "@/lib/models/User";
 import Product from "@/lib/models/Product";
-import { serializeProduct } from "@/lib/store-product";
+import { serializeProducts } from "@/lib/attach-product-brands";
 
 const MAX_RECENT = 16;
 
@@ -35,7 +35,8 @@ export async function GET() {
       .filter((id: string) => Types.ObjectId.isValid(id))
       .map((id: string) => new Types.ObjectId(id));
     const products = objectIds.length > 0 ? await Product.find({ _id: { $in: objectIds } }) : [];
-    const byId = new Map(products.map((item) => [String(item._id), serializeProduct(item)]));
+    const serialized = await serializeProducts(products);
+    const byId = new Map(serialized.map((item) => [String(item.id), item]));
     const items = ids.map((id: string) => byId.get(id)).filter(Boolean);
     return NextResponse.json({ items });
   } catch (err) {
