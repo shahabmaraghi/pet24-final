@@ -16,6 +16,7 @@ const ProductSchema = new Schema(
     specs: [SpecSchema],
     images: [String],
     stock: { type: Number, default: 100 },
+    available: { type: Boolean, default: true, index: true },
   },
   { timestamps: true }
 );

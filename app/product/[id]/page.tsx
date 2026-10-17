@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { StarRating } from "@/components/star-rating";
 import { ProductDetailSkeleton } from "@/components/product-detail-skeleton";
 import { ProductInfiniteGrid } from "@/components/product-infinite-grid";
-import { getCategory, fmt, type Product } from "@/lib/data";
+import { getCategory, fmt, isProductAvailable, type Product } from "@/lib/data";
 import { useCart } from "@/lib/cart-store";
 import { serializeProduct } from "@/lib/store-product";
 import { useInfiniteProducts } from "@/lib/use-infinite-products";
@@ -119,6 +119,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   if (!product) notFound();
   const category = getCategory(product.categoryId) ?? { id: product.categoryId, name: "", tint: "#6b7280" };
   const images = product.images?.filter(Boolean) || [];
+  const available = isProductAvailable(product);
 
   const count = reviews.length;
   const rating = count ? Math.round((reviews.reduce((sum, review) => sum + review.rating, 0) / count) * 10) / 10 : 0;
@@ -173,24 +174,34 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
             <StarRating rating={rating} size={16} />
             <span className="text-muted-foreground">{fmt(rating)} ({fmt(count)} نظر)</span>
           </div>
-          <div className="mb-6 flex items-baseline gap-3">
-            <div className="text-[26px] font-extrabold text-primary">{fmt(product.price)} تومان</div>
-            {product.oldPrice && <div className="text-[15px] text-muted-foreground line-through">{fmt(product.oldPrice)} تومان</div>}
-          </div>
-          <p className="mb-6 text-[15px] leading-loose text-muted-foreground">{product.desc}</p>
-          <div className="mb-5 flex flex-wrap items-center gap-4">
-            <div className="flex items-center rounded-xl border">
-              <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="flex h-10 w-10 items-center justify-center rounded-xl hover:bg-accent"><Minus className="h-4 w-4" /></button>
-              <div className="w-10 text-center font-bold">{qty}</div>
-              <button onClick={() => setQty((q) => q + 1)} className="flex h-10 w-10 items-center justify-center rounded-xl hover:bg-accent"><Plus className="h-4 w-4" /></button>
+          {available ? (
+            <div className="mb-6 flex items-baseline gap-3">
+              <div className="text-[26px] font-extrabold text-primary">{fmt(product.price)} تومان</div>
+              {product.oldPrice && <div className="text-[15px] text-muted-foreground line-through">{fmt(product.oldPrice)} تومان</div>}
             </div>
-            <Button
-              className="min-w-[180px] flex-1 py-6 text-[15px] font-bold shadow-lg"
-              onClick={() => { addToCart(product.id, qty); router.push("/cart"); }}
-            >
-              افزودن به سبد خرید
-            </Button>
-          </div>
+          ) : (
+            <div className="mb-6">
+              <span className="inline-flex rounded-lg bg-destructive px-3 py-1.5 text-[15px] font-bold text-white">
+                ناموجود
+              </span>
+            </div>
+          )}
+          <p className="mb-6 text-[15px] leading-loose text-muted-foreground">{product.desc}</p>
+          {available ? (
+            <div className="mb-5 flex flex-wrap items-center gap-4">
+              <div className="flex items-center rounded-xl border">
+                <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="flex h-10 w-10 items-center justify-center rounded-xl hover:bg-accent"><Minus className="h-4 w-4" /></button>
+                <div className="w-10 text-center font-bold">{qty}</div>
+                <button onClick={() => setQty((q) => q + 1)} className="flex h-10 w-10 items-center justify-center rounded-xl hover:bg-accent"><Plus className="h-4 w-4" /></button>
+              </div>
+              <Button
+                className="min-w-[180px] flex-1 py-6 text-[15px] font-bold shadow-lg"
+                onClick={() => { addToCart(product.id, qty); router.push("/cart"); }}
+              >
+                افزودن به سبد خرید
+              </Button>
+            </div>
+          ) : null}
           {product.specs.length > 0 ? (
             <div className="grid grid-cols-2 gap-2.5 border-t pt-5">
               {product.specs.map((s) => (

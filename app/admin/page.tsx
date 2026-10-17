@@ -6,7 +6,7 @@ import { signOut, useSession } from "next-auth/react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { LayoutGrid, Package, Tag, GalleryHorizontal, ClipboardList, Users, LogOut, Menu, MessageSquare, PawPrint, CircleHelp, Award, ArrowLeftRight } from "lucide-react";
+import { LayoutGrid, Package, Tag, GalleryHorizontal, ClipboardList, Users, LogOut, Menu, MessageSquare, PawPrint, CircleHelp, Award } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +31,7 @@ const productSchema = z.object({
   brand: z.string().optional(),
   price: z.coerce.number().min(1, "قیمت معتبر وارد کنید"),
   stock: z.coerce.number().min(0, "موجودی معتبر وارد کنید"),
+  available: z.boolean(),
 });
 type ProductFormData = z.infer<typeof productSchema>;
 
@@ -83,7 +84,7 @@ const TABS = [
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
-type AdminProduct = { id: string; name: string; categoryId: string; category: string; brandId: string; price: number; stock: number; images: string[] };
+type AdminProduct = { id: string; name: string; categoryId: string; category: string; brandId: string; price: number; stock: number; available: boolean; images: string[] };
 type AdminPost = { id: string; title: string; category: string; author: string; date: string; excerpt: string; paragraphs: string[]; content?: string; coverImage?: string };
 type AdminSlide = { id: string; title: string; subtitle: string; tint: string; image?: string };
 type AdminFaq = { id: string; question: string; answer: string; order: number; active: boolean };
@@ -132,7 +133,7 @@ export default function AdminPage() {
       .then((res) => (res.ok ? res.json() : { items: [] }))
       .then((data) => {
         const items = Array.isArray(data.items) ? data.items : [];
-        setProducts(items.map((item: { id: string; name: string; categoryId: string; brandId?: string; price: number; stock?: number; images?: string[] }) => ({
+        setProducts(items.map((item: { id: string; name: string; categoryId: string; brandId?: string; price: number; stock?: number; available?: boolean; images?: string[] }) => ({
           id: String(item.id),
           name: String(item.name),
           categoryId: String(item.categoryId),
@@ -140,6 +141,7 @@ export default function AdminPage() {
           brandId: String(item.brandId || ""),
           price: Number(item.price),
           stock: Number(item.stock ?? 0),
+          available: item.available !== false,
           images: Array.isArray(item.images) ? item.images.map(String) : [],
         })));
       })
@@ -281,7 +283,7 @@ export default function AdminPage() {
   const [productBusy, setProductBusy] = React.useState(false);
   const [productError, setProductError] = React.useState("");
   const [productImages, setProductImages] = React.useState<string[]>([]);
-  const productForm = useForm<ProductFormData>({ resolver: zodResolver(productSchema), defaultValues: { name: "", category: "", brand: "none", price: 0, stock: 0 } });
+  const productForm = useForm<ProductFormData>({ resolver: zodResolver(productSchema), defaultValues: { name: "", category: "", brand: "none", price: 0, stock: 0, available: true } });
   const [categories, setCategories] = React.useState<{ id: string; name: string; active: boolean }[]>([]);
   const [newCategoryName, setNewCategoryName] = React.useState("");
   const [categoryBusy, setCategoryBusy] = React.useState(false);
@@ -344,7 +346,7 @@ export default function AdminPage() {
   const startAddProduct = () => {
     const defaultCategory = categories.find((c) => c.active)?.id || categories[0]?.id || "";
     setEditingId(null);
-    productForm.reset({ name: "", category: defaultCategory, brand: "none", price: 0, stock: 0 });
+    productForm.reset({ name: "", category: defaultCategory, brand: "none", price: 0, stock: 0, available: true });
     setProductImages([]);
   };
   const setCategoryActive = async (id: string, active: boolean) => {
@@ -371,8 +373,29 @@ export default function AdminPage() {
   };
   const startEditProduct = (p: AdminProduct) => {
     setEditingId(p.id);
-    productForm.reset({ name: p.name, category: p.categoryId, brand: p.brandId || "none", price: p.price, stock: p.stock });
+    productForm.reset({ name: p.name, category: p.categoryId, brand: p.brandId || "none", price: p.price, stock: p.stock, available: p.available !== false });
     setProductImages(p.images || []);
+  };
+  const setProductAvailable = async (id: string, available: boolean) => {
+    setProductBusy(true);
+    setProductError("");
+    try {
+      const res = await fetch(`/api/products/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ available }),
+      });
+      const saved = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setProductError(saved.error || "به‌روزرسانی موجودی انجام نشد.");
+        return;
+      }
+      setProducts((ps) => ps.map((p) => (p.id === id ? { ...p, available } : p)));
+    } catch {
+      setProductError("به‌روزرسانی موجودی انجام نشد.");
+    } finally {
+      setProductBusy(false);
+    }
   };
   const saveProduct = async (data: ProductFormData) => {
     setProductBusy(true);
@@ -384,6 +407,7 @@ export default function AdminPage() {
         brandId: data.brand && data.brand !== "none" ? data.brand : "",
         price: data.price,
         stock: data.stock,
+        available: data.available,
         featured: true,
         desc: "",
         type: "عمومی",
@@ -407,6 +431,7 @@ export default function AdminPage() {
         brandId: String(saved.brandId || saved.brand?.id || ""),
         price: Number(saved.price),
         stock: Number(saved.stock ?? 0),
+        available: saved.available !== false,
         images: Array.isArray(saved.images) ? saved.images.map(String) : productImages,
       };
       setProducts((ps) => (ps.some((p) => p.id === rec.id) ? ps.map((p) => (p.id === rec.id ? rec : p)) : [rec, ...ps]));
@@ -647,13 +672,6 @@ export default function AdminPage() {
           <t.Icon className="h-[17px] w-[17px] shrink-0" strokeWidth={1.8} />{t.label}
         </button>
       ))}
-      <Link
-        href="/production-movement"
-        className="flex items-center gap-2.5 rounded-[10px] px-3.5 py-3 text-sm font-semibold text-muted-foreground hover:bg-accent"
-      >
-        <ArrowLeftRight className="h-[17px] w-[17px] shrink-0" strokeWidth={1.8} />
-        انتقال تولید
-      </Link>
       <div className="mt-auto flex flex-col gap-1">
         <div className="flex items-center justify-between px-3.5 py-2">
           <span className="text-[13px] text-muted-foreground">ظاهر</span>
@@ -704,9 +722,6 @@ export default function AdminPage() {
                   </div>
                 ))}
               </div>
-              <Button asChild className="mt-5 font-bold">
-                <Link href="/production-movement">انتقال تولید جدید</Link>
-              </Button>
             </>
           )}
 
@@ -758,12 +773,20 @@ export default function AdminPage() {
                     <Input type="number" {...productForm.register("stock")} placeholder="موجودی" />
                     {productForm.formState.errors.stock && <span className="text-xs text-destructive">{productForm.formState.errors.stock.message}</span>}
                   </div>
+                  <label className="col-span-full flex items-center gap-2 text-sm font-semibold text-destructive">
+                    <input
+                      type="checkbox"
+                      checked={!productForm.watch("available")}
+                      onChange={(e) => productForm.setValue("available", !e.target.checked, { shouldDirty: true })}
+                    />
+                    ناموجود
+                  </label>
                   <div className="col-span-full flex gap-2.5"><Button type="submit" disabled={productBusy} className="font-bold">ذخیره</Button><Button type="button" variant="outline" onClick={() => { setEditingId(undefined); setProductImages([]); }}>انصراف</Button></div>
                 </form>
               )}
               <div className="rounded-2xl border bg-card">
                 <Table>
-                  <TableHeader><TableRow><TableHead>تصویر</TableHead><TableHead>نام</TableHead><TableHead>دسته</TableHead><TableHead>برند</TableHead><TableHead>قیمت</TableHead><TableHead>موجودی</TableHead><TableHead></TableHead></TableRow></TableHeader>
+                  <TableHeader><TableRow><TableHead>تصویر</TableHead><TableHead>نام</TableHead><TableHead>دسته</TableHead><TableHead>برند</TableHead><TableHead>قیمت</TableHead><TableHead>موجودی</TableHead><TableHead>وضعیت</TableHead><TableHead></TableHead></TableRow></TableHeader>
                   <TableBody>
                     {products.map((p) => (
                       <TableRow key={p.id}>
@@ -775,7 +798,22 @@ export default function AdminPage() {
                         <TableCell>{brands.find((b) => b.id === p.brandId)?.nameFa || brands.find((b) => b.id === p.brandId)?.name || "—"}</TableCell>
                         <TableCell>{fmt(p.price)}</TableCell>
                         <TableCell>{p.stock}</TableCell>
+                        <TableCell>
+                          {p.available === false ? (
+                            <span className="font-semibold text-destructive">ناموجود</span>
+                          ) : (
+                            <span className="font-semibold text-primary">موجود</span>
+                          )}
+                        </TableCell>
                         <TableCell className="whitespace-nowrap">
+                          <button
+                            type="button"
+                            disabled={productBusy}
+                            onClick={() => setProductAvailable(p.id, p.available === false)}
+                            className={`ml-3.5 font-semibold ${p.available === false ? "text-primary" : "text-destructive"}`}
+                          >
+                            {p.available === false ? "موجود کردن" : "ناموجود"}
+                          </button>
                           <button onClick={() => startEditProduct(p)} className="ml-3.5 font-semibold text-primary">ویرایش</button>
                           <button
                             disabled={productBusy}

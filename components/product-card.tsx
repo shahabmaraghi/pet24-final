@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Product, getCategory, fmt } from "@/lib/data";
+import { Product, getCategory, fmt, isProductAvailable } from "@/lib/data";
 import { useCart } from "@/lib/cart-store";
 import { StarRating } from "@/components/star-rating";
 import { baseRating, baseCount } from "@/lib/reviews-store";
@@ -16,6 +16,7 @@ export function ProductCard({ product }: { product: Product }) {
   const { addToCart } = useCart();
   const router = useRouter();
   const image = product.images?.[0];
+  const available = isProductAvailable(product);
   return (
     <Link
       href={`/product/${product.id}`}
@@ -23,9 +24,9 @@ export function ProductCard({ product }: { product: Product }) {
     >
       <div className="relative">
         <ProductImage src={image} alt={product.name} className="h-44 w-full" iconClassName="h-8 w-8" />
-        {product.badge && (
+        {available && product.badge ? (
           <Badge className="absolute right-2.5 top-2.5 bg-[#c17d2f] text-white hover:bg-[#c17d2f]">{product.badge}</Badge>
-        )}
+        ) : null}
       </div>
       <div className="flex flex-1 flex-col gap-3 p-3.5">
         <div className="flex items-center justify-between gap-2">
@@ -57,17 +58,27 @@ export function ProductCard({ product }: { product: Product }) {
           <span className="text-[11px] text-muted-foreground">({baseCount(product.id)})</span>
         </div>
         <div className="flex items-center justify-between gap-2">
-          <div>
-            <div className="text-[15px] font-extrabold text-primary">{fmt(product.price)} تومان</div>
-            {product.oldPrice && <div className="text-xs text-muted-foreground line-through">{fmt(product.oldPrice)} تومان</div>}
-          </div>
-          <Button
-            size="sm"
-            className="h-8 px-3.5 text-xs"
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); addToCart(product.id, 1); }}
-          >
-            افزودن
-          </Button>
+          {available ? (
+            <>
+              <div>
+                <div className="text-[15px] font-extrabold text-primary">{fmt(product.price)} تومان</div>
+                {product.oldPrice && <div className="text-xs text-muted-foreground line-through">{fmt(product.oldPrice)} تومان</div>}
+              </div>
+              <Button
+                size="sm"
+                className="h-8 px-3.5 text-xs"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  addToCart(product.id, 1);
+                }}
+              >
+                افزودن
+              </Button>
+            </>
+          ) : (
+            <Badge className="bg-destructive text-white hover:bg-destructive">ناموجود</Badge>
+          )}
         </div>
       </div>
     </Link>

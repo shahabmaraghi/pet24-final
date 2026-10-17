@@ -72,6 +72,7 @@ export async function POST(req: Request) {
     specs: Array.isArray(body.specs) ? body.specs : [],
     images: Array.isArray(body.images) ? body.images.map(String).filter(Boolean) : [],
     stock: body.stock != null ? Number(body.stock) : 100,
+    available: body.available !== false,
   });
   return NextResponse.json(await serializeProductWithBrand(product), { status: 201 });
 }

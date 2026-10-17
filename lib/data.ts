@@ -5,10 +5,15 @@ export type Product = {
   oldPrice?: number; badge?: string; featured?: boolean; desc: string;
   specs: { k: string; v: string }[];
   stock?: number;
+  available?: boolean;
   images?: string[];
   brandId?: string;
   brand?: ProductBrand;
 };
+
+export function isProductAvailable(product: Pick<Product, "available" | "stock">) {
+  return product.available !== false && Number(product.stock ?? 0) > 0;
+}
 
 export const CATEGORIES: Category[] = [
   { id: 'dog', name: 'سگ', tint: '#ad8760' },

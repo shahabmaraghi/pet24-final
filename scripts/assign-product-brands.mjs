@@ -78,6 +78,15 @@ const BRAND_PATTERNS = [
   { keys: ["nuby", "نوبی"], name: "Nuby", nameFa: "نوبی" },
   { keys: ["makian dam pars", "ماکیان دام پارس"], name: "Makian Dam Pars", nameFa: "ماکیان دام پارس" },
   { keys: ["ronix", "رونیکس"], name: "Ronix", nameFa: "رونیکس" },
+  { keys: ["ninapet", "نیناپت"], name: "Ninapet", nameFa: "نیناپت" },
+  { keys: ["idolpet", "آیدل پت"], name: "Idolpet", nameFa: "آیدل‌پت" },
+  { keys: ["pet gravity", "petgravity", "پت گرویتی"], name: "Pet Gravity", nameFa: "پت گرویتی" },
+  { keys: ["m-pets", "mpets", "ام پت", "ام‌پت"], name: "M-Pets", nameFa: "ام پت" },
+  { keys: ["happy pet", "هپی پت", "هپی‌پت"], name: "Happy Pet", nameFa: "هپی پت" },
+  { keys: ["adriana pet", "adrianapet", "آدریاناپت", "آدریانا پت"], name: "Adriana Pet", nameFa: "آدریاناپت" },
+  { keys: ["asopet", "آسوپت"], name: "Asopet", nameFa: "آسوپت" },
+  { keys: ["rose pet", "رز پت", "رزپت"], name: "Rose Pet", nameFa: "رز پت" },
+  { keys: ["kerbl", "کربل"], name: "Kerbl", nameFa: "کربل" },
 ];
 
 function normalize(text) {

@@ -2,7 +2,7 @@ import type { Product } from "@/lib/data";
 import type { StoreBrand } from "@/lib/store-brand";
 
 export type ProductBrand = Pick<StoreBrand, "id" | "name" | "nameFa" | "logo">;
-export type StoreProduct = Product & { stock?: number; brandId?: string; brand?: ProductBrand };
+export type StoreProduct = Product & { stock?: number; available?: boolean; brandId?: string; brand?: ProductBrand };
 
 const OBJECT_ID = /^[a-fA-F0-9]{24}$/;
 
@@ -41,6 +41,7 @@ export function serializeProduct(doc: any): StoreProduct {
           .filter((spec: { k: string }) => spec.k !== "منبع")
       : [],
     stock: Number(obj.stock ?? 0),
+    available: obj.available !== false,
     images: Array.isArray(obj.images) ? obj.images.map(String).filter(Boolean) : [],
     brandId,
     brand: pickBrand(obj, brandId),

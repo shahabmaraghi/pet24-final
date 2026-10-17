@@ -23,6 +23,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (Array.isArray(body.images)) body.images = body.images.map(String).filter(Boolean);
   if (body.brandId !== undefined) body.brandId = parseBrandId(body.brandId);
   if (body.categoryId !== undefined) body.categoryId = canonicalCategoryId(String(body.categoryId));
+  if (body.available !== undefined) body.available = Boolean(body.available);
+  if (body.stock !== undefined) body.stock = Number(body.stock);
   const product = await Product.findByIdAndUpdate(id, body, { new: true });
   if (!product) return NextResponse.json({ error: "محصول یافت نشد." }, { status: 404 });
   return NextResponse.json(await serializeProductWithBrand(product));

@@ -99,16 +99,30 @@ function guessCategoryId(url, name) {
   return CATEGORY_ID || "cat";
 }
 
+/** Shared category/feature icons shown next to product galleries (dog/cat/rabbit/truck/etc). */
+const PETABAD_ICON_HASHES = new Set([
+  "d2a5d5a819164a70a929d34f622d7184",
+  "d9805adbd1a64d1992351d92513cac29",
+  "eb98692803b5422087bf4b3bc9a3f4e9",
+  "ea5fff9ec57a413f8839254808d620b7",
+  "9dac4ec500684026ae40502da4f3682e",
+]);
+
+function isPetabadProductImage(url) {
+  const hash = (String(url).match(/uploads\/([a-f0-9]{20,})/i) || [])[1];
+  return Boolean(hash) && !PETABAD_ICON_HASHES.has(hash.toLowerCase());
+}
+
 function parseProduct(html, url) {
   let name = pickMeta(html, "og:title") || decodeHtml(html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1] || "");
   name = name.replace(/\s*\|\s*پت شاپ.*$/i, "").trim();
   const desc = pickMeta(html, "og:description") || pickMeta(html, "description");
   const images = [];
   const og = pickMeta(html, "og:image");
-  if (og) images.push(og);
+  if (og && isPetabadProductImage(og)) images.push(og);
   for (const m of html.matchAll(/https?:\/\/petabad\.com\/uploads\/[a-f0-9]{20,}\.(?:jpg|jpeg|png|webp)/gi)) {
     const clean = m[0].replace(/\.(?:w_\d+,h_\d+,r_[a-z])+\./i, ".");
-    if (!images.includes(clean) && images.length < 6) images.push(clean);
+    if (isPetabadProductImage(clean) && !images.includes(clean) && images.length < 6) images.push(clean);
   }
 
   let price = 0;
