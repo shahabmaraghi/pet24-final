@@ -6,7 +6,7 @@ import { signOut, useSession } from "next-auth/react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { LayoutGrid, Package, Tag, GalleryHorizontal, ClipboardList, Users, LogOut, Menu, MessageSquare, PawPrint, CircleHelp, Award } from "lucide-react";
+import { LayoutGrid, Package, Tag, GalleryHorizontal, ClipboardList, Users, LogOut, Menu, MessageSquare, PawPrint, CircleHelp, Award, ArrowLeftRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -646,6 +646,13 @@ export default function AdminPage() {
           <t.Icon className="h-[17px] w-[17px] shrink-0" strokeWidth={1.8} />{t.label}
         </button>
       ))}
+      <Link
+        href="/production-movement"
+        className="flex items-center gap-2.5 rounded-[10px] px-3.5 py-3 text-sm font-semibold text-muted-foreground hover:bg-accent"
+      >
+        <ArrowLeftRight className="h-[17px] w-[17px] shrink-0" strokeWidth={1.8} />
+        انتقال تولید
+      </Link>
       <div className="mt-auto flex flex-col gap-1">
         <button onClick={() => signOut({ callbackUrl: "/" })} className="flex items-center gap-2 rounded-[10px] px-3.5 py-3 text-sm font-semibold text-destructive">
           <LogOut className="h-4 w-4" />خروج از حساب
@@ -689,6 +696,9 @@ export default function AdminPage() {
                   </div>
                 ))}
               </div>
+              <Button asChild className="mt-5 font-bold">
+                <Link href="/production-movement">انتقال تولید جدید</Link>
+              </Button>
             </>
           )}
 

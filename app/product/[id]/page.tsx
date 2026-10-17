@@ -10,11 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ProductCard } from "@/components/product-card";
 import { StarRating } from "@/components/star-rating";
+import { ProductDetailSkeleton } from "@/components/product-detail-skeleton";
+import { ProductInfiniteGrid } from "@/components/product-infinite-grid";
 import { getCategory, fmt, type Product } from "@/lib/data";
 import { useCart } from "@/lib/cart-store";
 import { serializeProduct } from "@/lib/store-product";
+import { useInfiniteProducts } from "@/lib/use-infinite-products";
 import { ProductImageSlider } from "@/components/product-image-slider";
 import { ProductBrandMark } from "@/components/product-brand";
 import { TrackRecentlyViewed } from "@/components/track-recently-viewed";
@@ -57,7 +59,6 @@ function mapReview(item: {
 export default function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
   const [product, setProduct] = React.useState<Product | null | "loading">("loading");
-  const [related, setRelated] = React.useState<Product[]>([]);
   const router = useRouter();
   const { addToCart } = useCart();
   const [qty, setQty] = React.useState(1);
@@ -68,22 +69,26 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   const [submitting, setSubmitting] = React.useState(false);
   const reviewForm = useForm<ReviewFormData>({ resolver: zodResolver(reviewSchema), defaultValues: { author: "", text: "" } });
 
+  const related = useInfiniteProducts({
+    categoryId: product && product !== "loading" ? product.categoryId : undefined,
+    excludeId: product && product !== "loading" ? String(product.id) : undefined,
+    limit: 8,
+    enabled: Boolean(product && product !== "loading"),
+  });
+
   React.useEffect(() => {
     let cancelled = false;
+    setProduct("loading");
+    setQty(1);
     fetch(`/api/products/${id}`, { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : null))
-      .then(async (item) => {
+      .then((item) => {
         if (cancelled) return;
         if (!item) {
           setProduct(null);
           return;
         }
-        const current = serializeProduct(item);
-        setProduct(current);
-        const relatedRes = await fetch(`/api/products?categoryId=${encodeURIComponent(current.categoryId)}&limit=8`, { cache: "no-store" });
-        const relatedData = relatedRes.ok ? await relatedRes.json() : { items: [] };
-        const others = (relatedData.items || []).map(serializeProduct).filter((p: Product) => String(p.id) !== String(current.id)).slice(0, 4);
-        if (!cancelled) setRelated(others);
+        setProduct(serializeProduct(item));
       })
       .catch(() => {
         if (!cancelled) setProduct(null);
@@ -109,7 +114,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   }, [id]);
 
   if (product === "loading") {
-    return <div className="py-16 text-center text-muted-foreground">در حال بارگذاری...</div>;
+    return <ProductDetailSkeleton />;
   }
   if (!product) notFound();
   const category = getCategory(product.categoryId) ?? { id: product.categoryId, name: "", tint: "#6b7280" };
@@ -242,16 +247,16 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
           <p className="text-sm text-muted-foreground">هنوز نظری برای این محصول تایید نشده است.</p>
         )}
       </div>
-      {related.length > 0 && (
-        <>
-          <h2 className="mb-5 text-xl font-extrabold text-primary">محصولات مرتبط</h2>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {related.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
-        </>
-      )}
+      <h2 className="mb-5 text-xl font-extrabold text-primary">محصولات مرتبط</h2>
+      <ProductInfiniteGrid
+        products={related.products}
+        loading={related.loading}
+        loadingMore={related.loadingMore}
+        hasMore={related.hasMore}
+        loadMore={related.loadMore}
+        emptyMessage="محصول مرتبطی یافت نشد."
+        showEndMessage={false}
+      />
     </>
   );
 }

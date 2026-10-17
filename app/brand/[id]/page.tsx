@@ -2,22 +2,28 @@
 import * as React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ProductCard } from "@/components/product-card";
 import { ProductBrandMark } from "@/components/product-brand";
+import { ProductGridSkeleton } from "@/components/product-card-skeleton";
+import { ProductInfiniteGrid } from "@/components/product-infinite-grid";
 import { brandDisplayName, type StoreBrand } from "@/lib/store-brand";
-import { useStoreProducts } from "@/lib/use-store-products";
+import { useInfiniteProducts } from "@/lib/use-infinite-products";
 
 export default function BrandPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
   const [brand, setBrand] = React.useState<StoreBrand | null | "loading">("loading");
   const [typeFilter, setTypeFilter] = React.useState<string | null>(null);
-  const products = useStoreProducts({
+
+  const { products, types, total, loading, loadingMore, hasMore, loadMore } = useInfiniteProducts({
     brandId: brand && brand !== "loading" ? brand.id : undefined,
+    type: typeFilter,
+    limit: 24,
     enabled: Boolean(brand && brand !== "loading"),
   });
 
   React.useEffect(() => {
     let cancelled = false;
+    setBrand("loading");
+    setTypeFilter(null);
     fetch(`/api/brands/${encodeURIComponent(id)}`, { cache: "no-store" })
       .then((res) => {
         if (res.status === 404) return null;
@@ -47,12 +53,21 @@ export default function BrandPage({ params }: { params: Promise<{ id: string }> 
   }, [id]);
 
   if (brand === "loading") {
-    return <div className="py-16 text-center text-muted-foreground">در حال بارگذاری...</div>;
+    return (
+      <>
+        <div className="mb-8 flex items-center gap-4">
+          <div className="h-16 w-16 animate-pulse rounded-2xl bg-muted" />
+          <div className="space-y-2">
+            <div className="h-6 w-40 animate-pulse rounded bg-muted" />
+            <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+          </div>
+        </div>
+        <ProductGridSkeleton count={8} />
+      </>
+    );
   }
   if (!brand) notFound();
 
-  const types = [...new Set(products.map((p) => p.type).filter(Boolean))];
-  const shown = typeFilter ? products.filter((p) => p.type === typeFilter) : products;
   const name = brandDisplayName(brand);
 
   return (
@@ -67,11 +82,15 @@ export default function BrandPage({ params }: { params: Promise<{ id: string }> 
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-4">
           <ProductBrandMark brand={brand} size="lg" />
+          {!loading && total > 0 ? (
+            <div className="text-[13px] text-muted-foreground">{total.toLocaleString("fa-IR")} محصول</div>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
           {types.map((t) => (
             <button
               key={t}
+              type="button"
               onClick={() => setTypeFilter(typeFilter === t ? null : t)}
               className={`rounded-full border px-4 py-2 text-[13px] font-semibold ${typeFilter === t ? "border-primary bg-primary text-primary-foreground" : "bg-card text-muted-foreground"}`}
             >
@@ -80,15 +99,14 @@ export default function BrandPage({ params }: { params: Promise<{ id: string }> 
           ))}
         </div>
       </div>
-      {shown.length > 0 ? (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {shown.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-        </div>
-      ) : (
-        <div className="py-16 text-center text-muted-foreground">محصولی از این برند یافت نشد.</div>
-      )}
+      <ProductInfiniteGrid
+        products={products}
+        loading={loading}
+        loadingMore={loadingMore}
+        hasMore={hasMore}
+        loadMore={loadMore}
+        emptyMessage="محصولی از این برند یافت نشد."
+      />
     </>
   );
 }

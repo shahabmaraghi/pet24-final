@@ -11,9 +11,10 @@ export async function GET(req: Request) {
   const categoryId = searchParams.get("categoryId");
   const brandId = parseBrandId(searchParams.get("brandId"));
   const featured = searchParams.get("featured");
+  const type = searchParams.get("type")?.trim() || "";
   const q = searchParams.get("q");
-  const page = Number(searchParams.get("page") || 1);
-  const limit = Number(searchParams.get("limit") || 24);
+  const page = Math.max(1, Number(searchParams.get("page") || 1));
+  const limit = Math.min(48, Math.max(1, Number(searchParams.get("limit") || 24)));
   const filter: Record<string, unknown> = {};
   if (categoryId) {
     const aliases = categoryIdAliases(categoryId);
@@ -21,22 +22,32 @@ export async function GET(req: Request) {
   }
   if (brandId) filter.brandId = brandId;
   if (featured) filter.featured = true;
+  if (type) filter.type = type;
   if (q) filter.name = { $regex: q, $options: "i" };
 
   try {
-    const [items, total] = await withMongoRetry(async () =>
+    const typeFilter = { ...filter };
+    delete (typeFilter as { type?: string }).type;
+    const [items, total, types] = await withMongoRetry(async () =>
       Promise.all([
         Product.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).maxTimeMS(8000),
         Product.countDocuments(filter).maxTimeMS(8000),
+        Product.distinct("type", typeFilter).maxTimeMS(8000),
       ])
     );
     return NextResponse.json(
-      { items: await serializeProducts(items), total, page, pages: Math.ceil(total / limit) },
+      {
+        items: await serializeProducts(items),
+        total,
+        page,
+        pages: Math.ceil(total / limit) || 0,
+        types: (types as string[]).filter(Boolean).sort(),
+      },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (lastError) {
     console.error("GET /api/products failed", lastError);
-    return NextResponse.json({ items: [], total: 0, page, pages: 0 }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ items: [], total: 0, page, pages: 0, types: [] }, { headers: { "Cache-Control": "no-store" } });
   }
 }
 
