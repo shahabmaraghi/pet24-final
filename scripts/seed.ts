@@ -39,7 +39,7 @@ async function seed() {
   await BlogPost.deleteMany({});
   await Slide.deleteMany({});
 
-  await Category.insertMany(CATEGORIES);
+  await Category.insertMany(CATEGORIES.map((c, i) => ({ ...c, order: i })));
   await Product.insertMany(PRODUCTS.map(({ id, ...p }) => p));
   await BlogPost.insertMany(BLOG_POSTS.map(({ id, ...p }) => p));
   await Slide.insertMany(SLIDES.map((s, i) => ({ ...s, order: i })));

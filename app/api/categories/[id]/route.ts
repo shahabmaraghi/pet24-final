@@ -30,6 +30,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (typeof body.tint === "string") update.tint = body.tint;
   if (typeof body.image === "string") update.image = body.image;
   if (typeof body.active === "boolean") update.active = body.active;
+  if (body.order != null && Number.isFinite(Number(body.order))) update.order = Number(body.order);
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ error: "تغییری ارسال نشده است." }, { status: 400 });
   }

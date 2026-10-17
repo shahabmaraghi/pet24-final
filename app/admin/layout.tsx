@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { NOINDEX } from "@/lib/site";
+import { AdminShell } from "@/components/admin-shell";
 
 export const metadata: Metadata = {
   title: "پنل مدیریت",
@@ -7,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return <AdminShell>{children}</AdminShell>;
 }

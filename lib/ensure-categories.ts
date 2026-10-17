@@ -3,7 +3,7 @@ import Product from "@/lib/models/Product";
 import { CATEGORIES } from "@/lib/data";
 
 export async function ensureCategories() {
-  for (const seed of CATEGORIES) {
+  for (const [index, seed] of CATEGORIES.entries()) {
     const byName = await Category.collection.findOne({ name: seed.name });
     if (!byName) continue;
     const oldId = String(byName.id || "");
@@ -18,5 +18,17 @@ export async function ensureCategories() {
       }
     }
     await Product.updateMany({ categoryId: seed.name }, { $set: { categoryId: seed.id } });
+    if (byName.order == null) {
+      await Category.collection.updateOne({ _id: byName._id }, { $set: { order: index } });
+    }
+  }
+
+  const missingOrder = await Category.collection.find({ order: { $exists: false } }).toArray();
+  if (missingOrder.length) {
+    const maxDoc = await Category.collection.find({ order: { $exists: true } }).sort({ order: -1 }).limit(1).toArray();
+    let next = Number(maxDoc[0]?.order ?? -1) + 1;
+    for (const doc of missingOrder) {
+      await Category.collection.updateOne({ _id: doc._id }, { $set: { order: next++ } });
+    }
   }
 }

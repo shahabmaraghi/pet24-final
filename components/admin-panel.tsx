@@ -1,0 +1,1668 @@
+"use client";
+import * as React from "react";
+import { useSession } from "next-auth/react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ImageUploader } from "@/components/image-uploader";
+import { ProductImage } from "@/components/product-image";
+import { PostEditor } from "@/components/post-editor";
+import { htmlPlainText, paragraphsToHtml, sanitizeHtml } from "@/lib/html";
+import { fmt } from "@/lib/data";
+import { PET_SPECIES } from "@/lib/store-pet";
+import { BREED_SIZES, breedSizeLabel, type StoreBreed } from "@/lib/store-breed";
+import { AdminDashboardCharts, type DashboardSeriesPoint } from "@/components/admin-dashboard-charts";
+import { AdminCategorySortable, type AdminCategoryItem } from "@/components/admin-category-sortable";
+import type { AdminSectionId } from "@/lib/admin-nav";
+
+const productSchema = z.object({
+  name: z.string().min(2, "نام محصول را وارد کنید"),
+  category: z.string().min(1, "دسته‌بندی را انتخاب کنید"),
+  brand: z.string().optional(),
+  price: z.coerce.number().min(1, "قیمت معتبر وارد کنید"),
+  stock: z.coerce.number().min(0, "موجودی معتبر وارد کنید"),
+  available: z.boolean(),
+});
+type ProductFormData = z.infer<typeof productSchema>;
+
+const postSchema = z.object({
+  title: z.string().min(3, "عنوان پست را وارد کنید"),
+  category: z.string().min(1, "دسته را وارد کنید"),
+  author: z.string().min(2, "نام نویسنده را وارد کنید"),
+  excerpt: z.string().min(5, "خلاصه را وارد کنید"),
+  body: z.string().refine(
+    (val) => htmlPlainText(val).length >= 10 || /<img\s/i.test(val) || /<figure[\s>]/i.test(val),
+    "متن پست را وارد کنید"
+  ),
+});
+type PostFormData = z.infer<typeof postSchema>;
+const SLIDE_COLORS = ["#f0ece1", "#e9f1ea", "#dceee3", "#e8e4f4", "#dceaf6", "#f6ead2", "#f3e2e2", "#ffffff"];
+const slideSchema = z.object({
+  title: z.string().min(2, "عنوان اسلاید را وارد کنید"),
+  subtitle: z.string().min(2, "زیرعنوان را وارد کنید"),
+  background: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, "رنگ معتبر انتخاب کنید"),
+});
+type SlideFormData = z.infer<typeof slideSchema>;
+const faqSchema = z.object({
+  question: z.string().min(5, "سؤال را وارد کنید"),
+  answer: z.string().min(5, "پاسخ را وارد کنید"),
+  order: z.coerce.number().min(0),
+  active: z.boolean(),
+});
+type FaqFormData = z.infer<typeof faqSchema>;
+const brandSchema = z.object({
+  name: z.string().min(2, "نام برند را وارد کنید"),
+  nameFa: z.string().optional(),
+  order: z.coerce.number().min(0),
+  active: z.boolean(),
+});
+type BrandFormData = z.infer<typeof brandSchema>;
+
+type AdminProduct = { id: string; name: string; categoryId: string; category: string; brandId: string; price: number; stock: number; available: boolean; images: string[] };
+type AdminPost = { id: string; title: string; category: string; author: string; date: string; excerpt: string; paragraphs: string[]; content?: string; coverImage?: string };
+type AdminSlide = { id: string; title: string; subtitle: string; tint: string; image?: string };
+type AdminFaq = { id: string; question: string; answer: string; order: number; active: boolean };
+type AdminBrand = { id: string; name: string; nameFa: string; logo: string; order: number; active: boolean };
+type AdminComment = { id: string; name: string; text: string; status: "approved" | "pending" | "rejected"; postTitle: string };
+type AdminReview = { id: string; name: string; text: string; rating: number; status: "approved" | "pending" | "rejected"; productName: string };
+type AdminOrder = { id: string; customer: string; userId: string; total: number; date: string; status: string };
+type AdminUser = { id: string; name: string; phone: string; email: string; orders: number };
+type DashboardStats = {
+  productCount: number;
+  lowStockCount: number;
+  unavailableCount: number;
+  orderCount: number;
+  totalSales: number;
+  series: DashboardSeriesPoint[];
+};
+
+const ORDER_STATUS_LABEL: Record<string, string> = {
+  pending_payment: "در انتظار پرداخت",
+  paid: "پرداخت شده",
+  processing: "پردازش",
+  shipped: "ارسال شده",
+  delivered: "تحویل شده",
+  cancelled: "لغو شده",
+};
+const ORDER_STATUS_KEYS = Object.keys(ORDER_STATUS_LABEL);
+
+export function AdminPanel({ section }: { section: AdminSectionId }) {
+  const { data: session, status } = useSession();
+
+  React.useEffect(() => {
+    if (status !== "authenticated" || session?.user?.role !== "admin") return;
+    fetch("/api/categories?all=true", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((items) => {
+        if (!Array.isArray(items)) return;
+        setCategories(
+          items
+            .map((item: { id: string; name: string; active?: boolean; order?: number }) => ({
+              id: String(item.id),
+              name: String(item.name),
+              active: item.active !== false,
+              order: Number(item.order ?? 0),
+            }))
+            .sort((a: AdminCategoryItem, b: AdminCategoryItem) => a.order - b.order || a.name.localeCompare(b.name, "fa"))
+        );
+      })
+      .catch(() => {});
+    fetch("/api/blog?limit=50", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : { items: [] }))
+      .then((data) => {
+        const items = Array.isArray(data.items) ? data.items : [];
+        setPosts(items.map((item: AdminPost) => ({
+          id: String(item.id),
+          title: String(item.title),
+          category: String(item.category || ""),
+          author: String(item.author || ""),
+          date: String(item.date || ""),
+          excerpt: String(item.excerpt || ""),
+          paragraphs: Array.isArray(item.paragraphs) ? item.paragraphs : [],
+          content: String(item.content || ""),
+          coverImage: String(item.coverImage || ""),
+        })));
+      })
+      .catch(() => {});
+    fetch("/api/slider", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((items) => {
+        if (!Array.isArray(items)) return;
+        setSlides(items.map((item: { _id?: string; id?: string; title: string; subtitle?: string; from?: string; image?: string }) => ({
+          id: String(item.id || item._id),
+          title: String(item.title),
+          subtitle: String(item.subtitle || ""),
+          tint: String(item.from || "#f0ece1"),
+          image: String(item.image || ""),
+        })));
+      })
+      .catch(() => {});
+    fetch("/api/faq?all=true", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((items) => {
+        if (!Array.isArray(items)) return;
+        setFaqs(items.map((item: AdminFaq) => ({
+          id: String(item.id),
+          question: String(item.question || ""),
+          answer: String(item.answer || ""),
+          order: Number(item.order || 0),
+          active: item.active !== false,
+        })));
+      })
+      .catch(() => {});
+    fetch("/api/reviews?status=all", { cache: "no-store", credentials: "include" })
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !Array.isArray(data)) {
+          setReviewsError((data && data.error) || "بارگذاری نظرات محصولات انجام نشد.");
+          return;
+        }
+        setReviewsError("");
+        setReviews(data.map((item: { _id?: string; id?: string; author?: string; text?: string; rating?: number; status?: string; productName?: string; productId?: { name?: string } | string }) => ({
+          id: String(item.id || item._id),
+          name: String(item.author || ""),
+          text: String(item.text || ""),
+          rating: Number(item.rating || 0),
+          status: (item.status === "rejected" || item.status === "pending" ? item.status : "approved") as AdminReview["status"],
+          productName: String(item.productName || (typeof item.productId === "object" ? item.productId?.name : "") || ""),
+        })));
+      })
+      .catch(() => setReviewsError("بارگذاری نظرات محصولات انجام نشد."));
+    fetch("/api/blog-comments?status=all", { cache: "no-store", credentials: "include" })
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !Array.isArray(data)) {
+          setCommentsError((data && data.error) || "بارگذاری نظرات بلاگ انجام نشد.");
+          return;
+        }
+        setCommentsError("");
+        setComments(data.map((item: { _id?: string; id?: string; author?: string; text?: string; status?: string; postTitle?: string; postId?: { title?: string } | string }) => ({
+          id: String(item.id || item._id),
+          name: String(item.author || ""),
+          text: String(item.text || ""),
+          status: (item.status === "rejected" || item.status === "pending" ? item.status : "approved") as AdminComment["status"],
+          postTitle: String(item.postTitle || (typeof item.postId === "object" ? item.postId?.title : "") || ""),
+        })));
+      })
+      .catch(() => setCommentsError("بارگذاری نظرات بلاگ انجام نشد."));
+    fetch("/api/orders?all=true", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((items) => {
+        if (!Array.isArray(items)) return;
+        const mapped: AdminOrder[] = items.map((item: { _id?: string; id?: string; userId?: { _id?: string; name?: string; email?: string } | string; address?: { name?: string }; total?: number; createdAt?: string; status?: string }) => {
+          const created = item.createdAt ? new Date(item.createdAt) : null;
+          const user = typeof item.userId === "object" && item.userId ? item.userId : null;
+          return {
+            id: String(item._id || item.id),
+            customer: String(user?.name || item.address?.name || user?.email || "کاربر"),
+            userId: String(user?._id || item.userId || ""),
+            total: Number(item.total || 0),
+            date: created ? created.toLocaleDateString("fa-IR") : "",
+            status: String(item.status || "pending_payment"),
+          };
+        });
+        setOrders(mapped);
+      })
+      .catch(() => {});
+    fetch("/api/users", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((items) => {
+        if (!Array.isArray(items)) return;
+        setUsers(items.map((item: { _id?: string; id?: string; name?: string; phone?: string; email?: string }) => ({
+          id: String(item._id || item.id),
+          name: String(item.name || "کاربر"),
+          phone: String(item.phone || "—"),
+          email: String(item.email || ""),
+          orders: 0,
+        })));
+      })
+      .catch(() => {});
+    fetch("/api/brands?all=true", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((items) => {
+        if (!Array.isArray(items)) return;
+        setBrands(items.map((item: AdminBrand) => ({
+          id: String(item.id),
+          name: String(item.name || ""),
+          nameFa: String(item.nameFa || ""),
+          logo: String(item.logo || ""),
+          order: Number(item.order || 0),
+          active: item.active !== false,
+        })));
+      })
+      .catch(() => {});
+    fetch("/api/breeds?all=true", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((items) => {
+        if (Array.isArray(items)) setBreeds(items);
+      })
+      .catch(() => {});
+  }, [status, session]);
+
+  const [products, setProducts] = React.useState<AdminProduct[]>([]);
+  const [dashboardStats, setDashboardStats] = React.useState<DashboardStats>({
+    productCount: 0,
+    lowStockCount: 0,
+    unavailableCount: 0,
+    orderCount: 0,
+    totalSales: 0,
+    series: [],
+  });
+  const [productSearch, setProductSearch] = React.useState("");
+  const [productSearchBusy, setProductSearchBusy] = React.useState(false);
+  const [editingId, setEditingId] = React.useState<string | null | undefined>(undefined);
+  const [productBusy, setProductBusy] = React.useState(false);
+  const [productError, setProductError] = React.useState("");
+  const [productImages, setProductImages] = React.useState<string[]>([]);
+  const productForm = useForm<ProductFormData>({ resolver: zodResolver(productSchema), defaultValues: { name: "", category: "", brand: "none", price: 0, stock: 0, available: true } });
+
+  const mapAdminProduct = React.useCallback((item: {
+    id: string;
+    name: string;
+    categoryId: string;
+    brandId?: string;
+    brand?: { id?: string };
+    price: number;
+    stock?: number;
+    available?: boolean;
+    images?: string[];
+  }): AdminProduct => ({
+    id: String(item.id),
+    name: String(item.name),
+    categoryId: String(item.categoryId),
+    category: "",
+    brandId: String(item.brandId || item.brand?.id || ""),
+    price: Number(item.price),
+    stock: Number(item.stock ?? 0),
+    available: item.available !== false,
+    images: Array.isArray(item.images) ? item.images.map(String) : [],
+  }), []);
+
+  const loadProducts = React.useCallback(async (query = "") => {
+    setProductSearchBusy(true);
+    try {
+      const params = new URLSearchParams({ limit: "100" });
+      const q = query.trim();
+      if (q) params.set("q", q);
+      const res = await fetch(`/api/products?${params}`, { cache: "no-store" });
+      const data = res.ok ? await res.json() : { items: [] };
+      const items = Array.isArray(data.items) ? data.items : [];
+      setProducts(items.map(mapAdminProduct));
+    } catch {
+      setProducts([]);
+    } finally {
+      setProductSearchBusy(false);
+    }
+  }, [mapAdminProduct]);
+
+  React.useEffect(() => {
+    if (status !== "authenticated" || session?.user?.role !== "admin") return;
+    const timer = window.setTimeout(() => {
+      void loadProducts(productSearch);
+    }, productSearch.trim() ? 300 : 0);
+    return () => window.clearTimeout(timer);
+  }, [status, session, productSearch, loadProducts]);
+
+  const refreshDashboardStats = React.useCallback(() => {
+    if (status !== "authenticated" || session?.user?.role !== "admin") return;
+    fetch("/api/admin/stats", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return;
+        setDashboardStats({
+          productCount: Number(data.productCount || 0),
+          lowStockCount: Number(data.lowStockCount || 0),
+          unavailableCount: Number(data.unavailableCount || 0),
+          orderCount: Number(data.orderCount || 0),
+          totalSales: Number(data.totalSales || 0),
+          series: Array.isArray(data.series)
+            ? data.series.map((row: DashboardSeriesPoint) => ({
+                date: String(row.date || ""),
+                label: String(row.label || ""),
+                sales: Number(row.sales || 0),
+                orders: Number(row.orders || 0),
+              }))
+            : [],
+        });
+      })
+      .catch(() => {});
+  }, [status, session]);
+
+  React.useEffect(() => {
+    refreshDashboardStats();
+  }, [refreshDashboardStats]);
+  const [categories, setCategories] = React.useState<AdminCategoryItem[]>([]);
+  const [newCategoryName, setNewCategoryName] = React.useState("");
+  const [categoryBusy, setCategoryBusy] = React.useState(false);
+  const [categoryError, setCategoryError] = React.useState("");
+  const [categoryConfirm, setCategoryConfirm] = React.useState<{ id: string; name: string; active: boolean } | null>(null);
+
+  const reorderCategories = async (next: AdminCategoryItem[]) => {
+    const previous = categories;
+    setCategories(next);
+    setCategoryBusy(true);
+    setCategoryError("");
+    try {
+      const res = await fetch("/api/categories/reorder", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: next.map((item) => item.id) }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setCategories(previous);
+        setCategoryError((data && data.error) || "ذخیره ترتیب دسته‌ها انجام نشد.");
+        return;
+      }
+      if (Array.isArray(data)) {
+        setCategories(
+          data
+            .map((item: { id: string; name: string; active?: boolean; order?: number }) => ({
+              id: String(item.id),
+              name: String(item.name),
+              active: item.active !== false,
+              order: Number(item.order ?? 0),
+            }))
+            .sort((a: AdminCategoryItem, b: AdminCategoryItem) => a.order - b.order || a.name.localeCompare(b.name, "fa"))
+        );
+      }
+    } catch {
+      setCategories(previous);
+      setCategoryError("ذخیره ترتیب دسته‌ها انجام نشد.");
+    } finally {
+      setCategoryBusy(false);
+    }
+  };
+  const [slides, setSlides] = React.useState<AdminSlide[]>([]);
+  const [editingSlideId, setEditingSlideId] = React.useState<string | null | undefined>(undefined);
+  const [slideBusy, setSlideBusy] = React.useState(false);
+  const [slideError, setSlideError] = React.useState("");
+  const [slideImage, setSlideImage] = React.useState("");
+  const slideForm = useForm<SlideFormData>({ resolver: zodResolver(slideSchema), defaultValues: { title: "", subtitle: "", background: "#f0ece1" } });
+  const [faqs, setFaqs] = React.useState<AdminFaq[]>([]);
+  const [editingFaqId, setEditingFaqId] = React.useState<string | null | undefined>(undefined);
+  const [faqBusy, setFaqBusy] = React.useState(false);
+  const [faqError, setFaqError] = React.useState("");
+  const faqForm = useForm<FaqFormData>({
+    resolver: zodResolver(faqSchema),
+    defaultValues: { question: "", answer: "", order: 0, active: true },
+  });
+  const [brands, setBrands] = React.useState<AdminBrand[]>([]);
+  const [editingBrandId, setEditingBrandId] = React.useState<string | null | undefined>(undefined);
+  const [brandBusy, setBrandBusy] = React.useState(false);
+  const [brandError, setBrandError] = React.useState("");
+  const [brandLogo, setBrandLogo] = React.useState("");
+  const brandForm = useForm<BrandFormData>({
+    resolver: zodResolver(brandSchema),
+    defaultValues: { name: "", nameFa: "", order: 0, active: true },
+  });
+  const [orders, setOrders] = React.useState<AdminOrder[]>([]);
+  const [orderError, setOrderError] = React.useState("");
+  const [posts, setPosts] = React.useState<AdminPost[]>([]);
+  const [editingPostId, setEditingPostId] = React.useState<string | null | undefined>(undefined);
+  const [postBusy, setPostBusy] = React.useState(false);
+  const [postError, setPostError] = React.useState("");
+  const [postCover, setPostCover] = React.useState("");
+  const [postEditorKey, setPostEditorKey] = React.useState(0);
+  const postHtmlRef = React.useRef("");
+  const postForm = useForm<PostFormData>({ resolver: zodResolver(postSchema), defaultValues: { title: "", category: "", author: "تیم Pet24", excerpt: "", body: "" } });
+  const [comments, setComments] = React.useState<AdminComment[]>([]);
+  const [commentsError, setCommentsError] = React.useState("");
+  const [reviews, setReviews] = React.useState<AdminReview[]>([]);
+  const [reviewsError, setReviewsError] = React.useState("");
+  const [users, setUsers] = React.useState<AdminUser[]>([]);
+  const [breeds, setBreeds] = React.useState<StoreBreed[]>([]);
+  const [breedBusy, setBreedBusy] = React.useState(false);
+  const [breedError, setBreedError] = React.useState("");
+  const [breedFilter, setBreedFilter] = React.useState("dog");
+  const [breedForm, setBreedForm] = React.useState({ species: "dog", title: "", nameEn: "", size: "medium", aliases: "" });
+
+  const startAddProduct = () => {
+    const defaultCategory = categories.find((c) => c.active)?.id || categories[0]?.id || "";
+    setEditingId(null);
+    productForm.reset({ name: "", category: defaultCategory, brand: "none", price: 0, stock: 0, available: true });
+    setProductImages([]);
+  };
+  const setCategoryActive = async (id: string, active: boolean) => {
+    setCategoryBusy(true);
+    setCategoryError("");
+    setCategoryConfirm(null);
+    try {
+      const res = await fetch(`/api/categories/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setCategoryError(data.error || (active ? "فعال‌سازی دسته‌بندی انجام نشد." : "غیرفعال‌سازی دسته‌بندی انجام نشد."));
+        return;
+      }
+      setCategories((current) => current.map((item) => (item.id === id ? { ...item, active } : item)));
+    } catch {
+      setCategoryError(active ? "فعال‌سازی دسته‌بندی انجام نشد." : "غیرفعال‌سازی دسته‌بندی انجام نشد.");
+    } finally {
+      setCategoryBusy(false);
+    }
+  };
+  const startEditProduct = (p: AdminProduct) => {
+    setEditingId(p.id);
+    productForm.reset({ name: p.name, category: p.categoryId, brand: p.brandId || "none", price: p.price, stock: p.stock, available: p.available !== false });
+    setProductImages(p.images || []);
+  };
+  const setProductAvailable = async (id: string, available: boolean) => {
+    setProductBusy(true);
+    setProductError("");
+    try {
+      const res = await fetch(`/api/products/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ available }),
+      });
+      const saved = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setProductError(saved.error || "به‌روزرسانی موجودی انجام نشد.");
+        return;
+      }
+      setProducts((ps) => ps.map((p) => (p.id === id ? { ...p, available } : p)));
+      refreshDashboardStats();
+    } catch {
+      setProductError("به‌روزرسانی موجودی انجام نشد.");
+    } finally {
+      setProductBusy(false);
+    }
+  };
+  const saveProduct = async (data: ProductFormData) => {
+    setProductBusy(true);
+    setProductError("");
+    try {
+      const payload = {
+        name: data.name,
+        categoryId: data.category,
+        brandId: data.brand && data.brand !== "none" ? data.brand : "",
+        price: data.price,
+        stock: data.stock,
+        available: data.available,
+        featured: true,
+        desc: "",
+        type: "عمومی",
+        images: productImages,
+      };
+      const res = await fetch(editingId ? `/api/products/${editingId}` : "/api/products", {
+        method: editingId ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const saved = await res.json();
+      if (!res.ok) {
+        setProductError(saved.error || "ذخیره محصول انجام نشد.");
+        return;
+      }
+      const rec: AdminProduct = {
+        id: String(saved.id),
+        name: String(saved.name),
+        categoryId: String(saved.categoryId),
+        category: categories.find((c) => c.id === saved.categoryId)?.name || "",
+        brandId: String(saved.brandId || saved.brand?.id || ""),
+        price: Number(saved.price),
+        stock: Number(saved.stock ?? 0),
+        available: saved.available !== false,
+        images: Array.isArray(saved.images) ? saved.images.map(String) : productImages,
+      };
+      setProducts((ps) => (ps.some((p) => p.id === rec.id) ? ps.map((p) => (p.id === rec.id ? rec : p)) : [rec, ...ps]));
+      setEditingId(undefined);
+      setProductImages([]);
+      refreshDashboardStats();
+    } catch {
+      setProductError("ذخیره محصول انجام نشد.");
+    } finally {
+      setProductBusy(false);
+    }
+  };
+
+  const startAddPost = () => {
+    setEditingPostId(null);
+    postHtmlRef.current = "";
+    postForm.reset({ title: "", category: "", author: session?.user?.name || "تیم Pet24", excerpt: "", body: "" });
+    setPostCover("");
+    setPostEditorKey((key) => key + 1);
+  };
+  const startEditPost = async (post: AdminPost) => {
+    let body = post.content || paragraphsToHtml(post.paragraphs);
+    setEditingPostId(post.id);
+    postHtmlRef.current = body;
+    postForm.reset({
+      title: post.title,
+      category: post.category,
+      author: post.author,
+      excerpt: post.excerpt,
+      body,
+    });
+    setPostCover(post.coverImage || "");
+    setPostEditorKey((key) => key + 1);
+    try {
+      const res = await fetch(`/api/blog/${post.id}`, { cache: "no-store" });
+      if (!res.ok) return;
+      const full = await res.json();
+      body = String(full.content || paragraphsToHtml(Array.isArray(full.paragraphs) ? full.paragraphs : []));
+      postHtmlRef.current = body;
+      postForm.reset({
+        title: String(full.title || post.title),
+        category: String(full.category || post.category),
+        author: String(full.author || post.author),
+        excerpt: String(full.excerpt || post.excerpt),
+        body,
+      });
+      setPostCover(String(full.coverImage || post.coverImage || ""));
+      setPostEditorKey((key) => key + 1);
+    } catch {
+      /* keep list payload */
+    }
+  };
+  const savePost = async (data: PostFormData) => {
+    setPostBusy(true);
+    setPostError("");
+    try {
+      const body = postHtmlRef.current || data.body;
+      const res = await fetch(editingPostId ? `/api/blog/${editingPostId}` : "/api/blog", {
+        method: editingPostId ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...data, body, coverImage: postCover }),
+      });
+      const saved = await res.json();
+      if (!res.ok) {
+        setPostError(saved.error || "ذخیره پست انجام نشد.");
+        return;
+      }
+      const rec: AdminPost = {
+        id: String(saved.id),
+        title: String(saved.title),
+        category: String(saved.category || ""),
+        author: String(saved.author || ""),
+        date: String(saved.date || ""),
+        excerpt: String(saved.excerpt || ""),
+        paragraphs: Array.isArray(saved.paragraphs) ? saved.paragraphs : [],
+        content: String(saved.content || body),
+        coverImage: String(saved.coverImage || postCover),
+      };
+      setPosts((current) => (current.some((p) => p.id === rec.id) ? current.map((p) => (p.id === rec.id ? rec : p)) : [rec, ...current]));
+      setEditingPostId(undefined);
+      setPostCover("");
+    } catch {
+      setPostError("ذخیره پست انجام نشد.");
+    } finally {
+      setPostBusy(false);
+    }
+  };
+
+  const startAddSlide = () => {
+    setEditingSlideId(null);
+    setSlideImage("");
+    slideForm.reset({ title: "", subtitle: "", background: "#f0ece1" });
+  };
+  const startEditSlide = (slide: AdminSlide) => {
+    setEditingSlideId(slide.id);
+    setSlideImage(slide.image || "");
+    slideForm.reset({ title: slide.title, subtitle: slide.subtitle, background: slide.tint || "#f0ece1" });
+  };
+  const saveSlide = async (data: SlideFormData) => {
+    setSlideBusy(true);
+    setSlideError("");
+    try {
+      const res = await fetch(editingSlideId ? `/api/slider/${editingSlideId}` : "/api/slider", {
+        method: editingSlideId ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...data,
+          image: slideImage,
+          tag: "ویژه",
+          catId: categories.find((c) => c.active)?.id || categories[0]?.id || "dog",
+          from: data.background,
+          to: data.background,
+        }),
+      });
+      const saved = await res.json();
+      if (!res.ok) {
+        setSlideError(saved.error || "ذخیره اسلاید انجام نشد.");
+        return;
+      }
+      const rec: AdminSlide = {
+        id: String(saved.id || saved._id),
+        title: String(saved.title),
+        subtitle: String(saved.subtitle || ""),
+        tint: String(saved.from || data.background || "#f0ece1"),
+        image: String(saved.image || slideImage),
+      };
+      setSlideImage("");
+      setSlides((current) => (current.some((s) => s.id === rec.id) ? current.map((s) => (s.id === rec.id ? rec : s)) : [...current, rec]));
+      setEditingSlideId(undefined);
+    } catch {
+      setSlideError("ذخیره اسلاید انجام نشد.");
+    } finally {
+      setSlideBusy(false);
+    }
+  };
+
+  const startAddFaq = () => {
+    setEditingFaqId(null);
+    faqForm.reset({ question: "", answer: "", order: faqs.length + 1, active: true });
+  };
+  const startEditFaq = (faq: AdminFaq) => {
+    setEditingFaqId(faq.id);
+    faqForm.reset({ question: faq.question, answer: faq.answer, order: faq.order, active: faq.active });
+  };
+  const saveFaq = async (data: FaqFormData) => {
+    setFaqBusy(true);
+    setFaqError("");
+    try {
+      const res = await fetch(editingFaqId ? `/api/faq/${editingFaqId}` : "/api/faq", {
+        method: editingFaqId ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const saved = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setFaqError(saved.error || "ذخیره سؤال انجام نشد.");
+        return;
+      }
+      const rec: AdminFaq = {
+        id: String(saved.id || saved._id),
+        question: String(saved.question || data.question),
+        answer: String(saved.answer || data.answer),
+        order: Number(saved.order ?? data.order),
+        active: saved.active !== false,
+      };
+      setFaqs((current) => {
+        const next = current.some((item) => item.id === rec.id)
+          ? current.map((item) => (item.id === rec.id ? rec : item))
+          : [...current, rec];
+        return next.sort((a, b) => a.order - b.order);
+      });
+      setEditingFaqId(undefined);
+    } catch {
+      setFaqError("ذخیره سؤال انجام نشد.");
+    } finally {
+      setFaqBusy(false);
+    }
+  };
+
+  const startAddBrand = () => {
+    setEditingBrandId(null);
+    setBrandLogo("");
+    brandForm.reset({ name: "", nameFa: "", order: brands.length + 1, active: true });
+  };
+  const startEditBrand = (brand: AdminBrand) => {
+    setEditingBrandId(brand.id);
+    setBrandLogo(brand.logo || "");
+    brandForm.reset({ name: brand.name, nameFa: brand.nameFa || "", order: brand.order, active: brand.active });
+  };
+  const saveBrand = async (data: BrandFormData) => {
+    setBrandBusy(true);
+    setBrandError("");
+    try {
+      const res = await fetch(editingBrandId ? `/api/brands/${editingBrandId}` : "/api/brands", {
+        method: editingBrandId ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...data, logo: brandLogo }),
+      });
+      const saved = await res.json();
+      if (!res.ok) {
+        setBrandError(saved.error || "ذخیره برند انجام نشد.");
+        return;
+      }
+      const rec: AdminBrand = {
+        id: String(saved.id),
+        name: String(saved.name || data.name),
+        nameFa: String(saved.nameFa || data.nameFa || ""),
+        logo: String(saved.logo || brandLogo),
+        order: Number(saved.order ?? data.order),
+        active: saved.active !== false,
+      };
+      setBrands((current) => {
+        const next = current.some((item) => item.id === rec.id)
+          ? current.map((item) => (item.id === rec.id ? rec : item))
+          : [...current, rec];
+        return next.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, "en"));
+      });
+      setBrandLogo("");
+      setEditingBrandId(undefined);
+    } catch {
+      setBrandError("ذخیره برند انجام نشد.");
+    } finally {
+      setBrandBusy(false);
+    }
+  };
+
+  return (
+    <>
+          {section === "dashboard" && (
+            <>
+              <h1 className="mb-5 text-[22px] font-extrabold text-primary">داشبورد</h1>
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                {[
+                  { label: "فروش کل", value: `${fmt(dashboardStats.totalSales)} تومان` },
+                  { label: "تعداد سفارش", value: fmt(dashboardStats.orderCount) },
+                  { label: "تعداد محصولات", value: fmt(dashboardStats.productCount) },
+                  { label: "موجودی کم", value: fmt(dashboardStats.lowStockCount), danger: true },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-2xl border bg-card p-5">
+                    <div className="mb-2 text-xs text-muted-foreground">{s.label}</div>
+                    <div className={`text-xl font-extrabold ${s.danger ? "text-destructive" : "text-primary"}`}>{s.value}</div>
+                  </div>
+                ))}
+              </div>
+              <AdminDashboardCharts series={dashboardStats.series} />
+            </>
+          )}
+
+          {section === "products" && (
+            <>
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                <h1 className="text-[22px] font-extrabold text-primary">محصولات</h1>
+                <Button type="button" onClick={startAddProduct} className="font-bold">افزودن محصول</Button>
+              </div>
+              <div className="relative mb-5 max-w-md">
+                <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  placeholder="جستجوی محصول..."
+                  className="pr-10"
+                />
+                {productSearchBusy && (
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">...</span>
+                )}
+              </div>
+              {productError && <p className="mb-3 text-sm text-destructive">{productError}</p>}
+              {editingId !== undefined && (
+                <form onSubmit={productForm.handleSubmit(saveProduct)} className="mb-5 grid gap-3 rounded-2xl border bg-card p-5 [grid-template-columns:repeat(auto-fit,minmax(160px,1fr))]">
+                  <div className="col-span-full flex flex-col gap-1.5">
+                    <Label>نام محصول</Label>
+                    <Input {...productForm.register("name")} placeholder="نام محصول" />
+                    {productForm.formState.errors.name && <span className="text-xs text-destructive">{productForm.formState.errors.name.message}</span>}
+                  </div>
+                  <ImageUploader
+                    values={productImages}
+                    onChange={setProductImages}
+                    folder="products"
+                    label="تصاویر محصول"
+                    disabled={productBusy}
+                  />
+                  <div className="flex flex-col gap-1.5">
+                    <Label>دسته‌بندی</Label>
+                    <Select value={productForm.watch("category")} onValueChange={(v) => productForm.setValue("category", v, { shouldValidate: true })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>{categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.active ? c.name : `${c.name} (غیرفعال)`}</SelectItem>)}</SelectContent>
+                    </Select>
+                    {productForm.formState.errors.category && <span className="text-xs text-destructive">{productForm.formState.errors.category.message}</span>}
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>برند</Label>
+                    <Select value={productForm.watch("brand") || "none"} onValueChange={(v) => productForm.setValue("brand", v)}>
+                      <SelectTrigger><SelectValue placeholder="انتخاب برند" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">بدون برند</SelectItem>
+                        {brands.filter((b) => b.active || b.id === productForm.watch("brand")).map((b) => (
+                          <SelectItem key={b.id} value={b.id}>{b.nameFa ? `${b.nameFa} — ${b.name}` : b.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>قیمت (تومان)</Label>
+                    <Input type="number" {...productForm.register("price")} placeholder="قیمت (تومان)" />
+                    {productForm.formState.errors.price && <span className="text-xs text-destructive">{productForm.formState.errors.price.message}</span>}
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>موجودی</Label>
+                    <Input type="number" {...productForm.register("stock")} placeholder="موجودی" />
+                    {productForm.formState.errors.stock && <span className="text-xs text-destructive">{productForm.formState.errors.stock.message}</span>}
+                  </div>
+                  <label className="col-span-full flex items-center gap-2 text-sm font-semibold text-destructive">
+                    <input
+                      type="checkbox"
+                      checked={!productForm.watch("available")}
+                      onChange={(e) => productForm.setValue("available", !e.target.checked, { shouldDirty: true })}
+                    />
+                    ناموجود
+                  </label>
+                  <div className="col-span-full flex gap-2.5"><Button type="submit" disabled={productBusy} className="font-bold">ذخیره</Button><Button type="button" variant="outline" onClick={() => { setEditingId(undefined); setProductImages([]); }}>انصراف</Button></div>
+                </form>
+              )}
+              <div className="rounded-2xl border bg-card">
+                <Table>
+                  <TableHeader><TableRow><TableHead>تصویر</TableHead><TableHead>نام</TableHead><TableHead>دسته</TableHead><TableHead>برند</TableHead><TableHead>قیمت</TableHead><TableHead>موجودی</TableHead><TableHead>وضعیت</TableHead><TableHead></TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {products.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+                          {productSearchBusy ? "در حال جستجو..." : productSearch.trim() ? "محصولی با این جستجو یافت نشد." : "محصولی ثبت نشده است."}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      products.map((p) => (
+                        <TableRow key={p.id}>
+                          <TableCell>
+                            <ProductImage src={p.images[0]} alt={p.name} className="h-11 w-11 rounded-lg" />
+                          </TableCell>
+                          <TableCell>{p.name}</TableCell>
+                          <TableCell>{categories.find((c) => c.id === p.categoryId)?.name || p.category}</TableCell>
+                          <TableCell>{brands.find((b) => b.id === p.brandId)?.nameFa || brands.find((b) => b.id === p.brandId)?.name || "—"}</TableCell>
+                          <TableCell>{fmt(p.price)}</TableCell>
+                          <TableCell>{p.stock}</TableCell>
+                          <TableCell>
+                            {p.available === false ? (
+                              <span className="font-semibold text-destructive">ناموجود</span>
+                            ) : (
+                              <span className="font-semibold text-primary">موجود</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            <button
+                              type="button"
+                              disabled={productBusy}
+                              onClick={() => setProductAvailable(p.id, p.available === false)}
+                              className={`ml-3.5 font-semibold ${p.available === false ? "text-primary" : "text-destructive"}`}
+                            >
+                              {p.available === false ? "موجود کردن" : "ناموجود"}
+                            </button>
+                            <button onClick={() => startEditProduct(p)} className="ml-3.5 font-semibold text-primary">ویرایش</button>
+                            <button
+                              disabled={productBusy}
+                              onClick={async () => {
+                                setProductBusy(true);
+                                setProductError("");
+                                try {
+                                  const res = await fetch(`/api/products/${p.id}`, { method: "DELETE" });
+                                  if (!res.ok) {
+                                    setProductError("حذف محصول انجام نشد.");
+                                    return;
+                                  }
+                                  setProducts((ps) => ps.filter((x) => x.id !== p.id));
+                                  refreshDashboardStats();
+                                } catch {
+                                  setProductError("حذف محصول انجام نشد.");
+                                } finally {
+                                  setProductBusy(false);
+                                }
+                              }}
+                              className="font-semibold text-destructive"
+                            >حذف</button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+
+          {section === "categories" && (
+            <>
+              <h1 className="mb-5 text-[22px] font-extrabold text-primary">دسته‌بندی‌ها</h1>
+              <div className="mb-5 flex flex-wrap gap-2.5">
+                <Input value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} placeholder="نام دسته جدید" className="max-w-[280px] flex-1" />
+                <Button
+                  disabled={categoryBusy}
+                  onClick={async () => {
+                    const name = newCategoryName.trim();
+                    if (!name) return;
+                    setCategoryBusy(true);
+                    setCategoryError("");
+                    try {
+                      const res = await fetch("/api/categories", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ name }),
+                      });
+                      const data = await res.json();
+                      if (!res.ok) {
+                        setCategoryError(data.error || "ذخیره دسته‌بندی انجام نشد.");
+                        return;
+                      }
+                      setCategories((current) =>
+                        [
+                          ...current,
+                          {
+                            id: String(data.id),
+                            name: String(data.name),
+                            active: data.active !== false,
+                            order: Number(data.order ?? current.length),
+                          },
+                        ].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, "fa"))
+                      );
+                      setNewCategoryName("");
+                    } catch {
+                      setCategoryError("ذخیره دسته‌بندی انجام نشد.");
+                    } finally {
+                      setCategoryBusy(false);
+                    }
+                  }}
+                  className="font-bold"
+                >افزودن</Button>
+              </div>
+              {categoryError && <p className="mb-3 text-sm text-destructive">{categoryError}</p>}
+              <AdminCategorySortable
+                categories={categories}
+                busy={categoryBusy}
+                onReorder={reorderCategories}
+                onRequestActive={(c) => setCategoryConfirm({ id: c.id, name: c.name, active: true })}
+                onRequestInactive={(c) => setCategoryConfirm({ id: c.id, name: c.name, active: false })}
+              />
+              <Dialog open={!!categoryConfirm} onOpenChange={(open) => { if (!open && !categoryBusy) setCategoryConfirm(null); }}>
+                <DialogContent className="max-w-[420px]">
+                  <DialogHeader>
+                    <DialogTitle>{categoryConfirm?.active ? "فعال کردن دسته‌بندی" : "غیرفعال کردن دسته‌بندی"}</DialogTitle>
+                    <DialogDescription>
+                      {categoryConfirm?.active
+                        ? `آیا از فعال کردن دسته «${categoryConfirm.name}» مطمئن هستید؟ این دسته دوباره در فروشگاه نمایش داده می‌شود.`
+                        : `آیا از غیرفعال کردن دسته «${categoryConfirm?.name}» مطمئن هستید؟ این دسته از منوی فروشگاه مخفی می‌شود.`}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <Button type="button" variant="outline" disabled={categoryBusy} onClick={() => setCategoryConfirm(null)}>انصراف</Button>
+                    <Button
+                      type="button"
+                      disabled={categoryBusy || !categoryConfirm}
+                      variant={categoryConfirm?.active ? "default" : "destructive"}
+                      onClick={() => categoryConfirm && setCategoryActive(categoryConfirm.id, categoryConfirm.active)}
+                    >تایید</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </>
+          )}
+
+          {section === "brands" && (
+            <>
+              <div className="mb-5 flex items-center justify-between">
+                <h1 className="text-[22px] font-extrabold text-primary">برندها</h1>
+                <Button type="button" onClick={startAddBrand} className="font-bold">افزودن برند</Button>
+              </div>
+              <p className="mb-5 text-sm text-muted-foreground">برندهای غذا و لوازم حیوانات خانگی را اینجا تعریف کنید. می‌توانید برند جدید اضافه کنید، ویرایش کنید یا حذف نمایید.</p>
+              {brandError && <p className="mb-3 text-sm text-destructive">{brandError}</p>}
+              {editingBrandId !== undefined && (
+                <form onSubmit={brandForm.handleSubmit(saveBrand)} className="mb-5 flex flex-col gap-3 rounded-2xl border bg-card p-5">
+                  <ImageUploader
+                    values={brandLogo ? [brandLogo] : []}
+                    onChange={(urls) => setBrandLogo(urls[0] || "")}
+                    max={1}
+                    folder="brands"
+                    label="لوگوی برند (اختیاری)"
+                    disabled={brandBusy}
+                  />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="flex flex-col gap-1.5">
+                      <Label>نام انگلیسی</Label>
+                      <Input {...brandForm.register("name")} placeholder="مثلاً Royal Canin" dir="ltr" className="text-left" />
+                      {brandForm.formState.errors.name && <span className="text-xs text-destructive">{brandForm.formState.errors.name.message}</span>}
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label>نام فارسی</Label>
+                      <Input {...brandForm.register("nameFa")} placeholder="مثلاً رویال کنین" />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <Label>ترتیب نمایش</Label>
+                      <Input type="number" min="0" className="w-28" {...brandForm.register("order")} />
+                    </div>
+                    <label className="mt-5 flex items-center gap-2 text-sm font-semibold">
+                      <input type="checkbox" {...brandForm.register("active")} />
+                      فعال
+                    </label>
+                  </div>
+                  <div className="flex gap-2.5">
+                    <Button type="submit" disabled={brandBusy} className="font-bold">ذخیره</Button>
+                    <Button type="button" variant="outline" onClick={() => setEditingBrandId(undefined)}>انصراف</Button>
+                  </div>
+                </form>
+              )}
+              <div className="rounded-2xl border bg-card">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>لوگو</TableHead>
+                      <TableHead>برند</TableHead>
+                      <TableHead>نام فارسی</TableHead>
+                      <TableHead>ترتیب</TableHead>
+                      <TableHead>وضعیت</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {brands.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-sm text-muted-foreground">هنوز برندی ثبت نشده است.</TableCell>
+                      </TableRow>
+                    )}
+                    {brands.map((brand) => (
+                      <TableRow key={brand.id}>
+                        <TableCell>
+                          {brand.logo ? (
+                            <img src={brand.logo} alt={brand.name} className="h-12 w-[88px] rounded-lg border bg-white object-contain p-1" />
+                          ) : (
+                            <div className="flex h-12 w-[88px] items-center justify-center rounded-lg border text-[11px] text-muted-foreground">—</div>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-semibold" dir="ltr">{brand.name}</TableCell>
+                        <TableCell>{brand.nameFa || "—"}</TableCell>
+                        <TableCell>{brand.order.toLocaleString("fa-IR")}</TableCell>
+                        <TableCell>{brand.active ? "فعال" : "مخفی"}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-3">
+                            <button type="button" onClick={() => startEditBrand(brand)} className="text-[13px] font-semibold text-primary">ویرایش</button>
+                            <button
+                              type="button"
+                              disabled={brandBusy}
+                              className="text-[13px] font-semibold text-destructive"
+                              onClick={async () => {
+                                if (!window.confirm(`برند «${brand.name}» حذف شود؟`)) return;
+                                setBrandBusy(true);
+                                setBrandError("");
+                                try {
+                                  const res = await fetch(`/api/brands/${brand.id}`, { method: "DELETE" });
+                                  if (!res.ok) {
+                                    setBrandError("حذف برند انجام نشد.");
+                                    return;
+                                  }
+                                  setBrands((current) => current.filter((item) => item.id !== brand.id));
+                                } catch {
+                                  setBrandError("حذف برند انجام نشد.");
+                                } finally {
+                                  setBrandBusy(false);
+                                }
+                              }}
+                            >حذف</button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+
+          {section === "breeds" && (
+            <>
+              <h1 className="mb-5 text-[22px] font-extrabold text-primary">نژادها</h1>
+              <p className="mb-5 text-sm text-muted-foreground">نژادهای سگ و گربه در فرم حساب کاربری به‌صورت لیست انتخاب می‌شوند. می‌توانید نژاد جدید اضافه کنید.</p>
+              <form
+                className="mb-5 grid gap-3 rounded-2xl border bg-card p-5 [grid-template-columns:repeat(auto-fit,minmax(160px,1fr))]"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  if (!breedForm.title.trim()) return;
+                  setBreedBusy(true);
+                  setBreedError("");
+                  try {
+                    const res = await fetch("/api/breeds", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(breedForm),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) {
+                      setBreedError(data.error || "ثبت نژاد انجام نشد.");
+                      return;
+                    }
+                    setBreeds((current) => [...current, data].sort((a, b) => a.title.localeCompare(b.title, "fa")));
+                    setBreedForm((current) => ({ ...current, title: "", nameEn: "", aliases: "" }));
+                  } catch {
+                    setBreedError("ثبت نژاد انجام نشد.");
+                  } finally {
+                    setBreedBusy(false);
+                  }
+                }}
+              >
+                <div className="flex flex-col gap-1.5">
+                  <Label>گونه</Label>
+                  <select className="flex h-10 rounded-md border border-input bg-background px-3 text-sm" value={breedForm.species} onChange={(e) => setBreedForm((c) => ({ ...c, species: e.target.value }))}>
+                    {PET_SPECIES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label>نام نژاد</Label>
+                  <Input value={breedForm.title} onChange={(e) => setBreedForm((c) => ({ ...c, title: e.target.value }))} placeholder="مثلاً گلدن رتریور" />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label>نام انگلیسی</Label>
+                  <Input value={breedForm.nameEn} onChange={(e) => setBreedForm((c) => ({ ...c, nameEn: e.target.value }))} placeholder="Golden Retriever" />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label>جثه</Label>
+                  <select className="flex h-10 rounded-md border border-input bg-background px-3 text-sm" value={breedForm.size} onChange={(e) => setBreedForm((c) => ({ ...c, size: e.target.value }))}>
+                    {BREED_SIZES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label>نام‌های دیگر</Label>
+                  <Input value={breedForm.aliases} onChange={(e) => setBreedForm((c) => ({ ...c, aliases: e.target.value }))} placeholder="گلدن، golden" />
+                </div>
+                <div className="flex items-end">
+                  <Button type="submit" disabled={breedBusy} className="font-bold">افزودن نژاد</Button>
+                </div>
+              </form>
+              {breedError && <p className="mb-3 text-sm text-destructive">{breedError}</p>}
+              <div className="mb-4 flex flex-wrap gap-2">
+                {[{ id: "all", label: "همه" }, ...PET_SPECIES].map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setBreedFilter(item.id)}
+                    className={`rounded-full border px-3 py-1 text-[13px] font-semibold ${breedFilter === item.id ? "border-primary bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                  >{item.label}</button>
+                ))}
+              </div>
+              <div className="rounded-2xl border bg-card">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>گونه</TableHead>
+                      <TableHead>نژاد</TableHead>
+                      <TableHead>انگلیسی</TableHead>
+                      <TableHead>جثه</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {breeds.filter((item) => breedFilter === "all" || item.species === breedFilter).map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>{PET_SPECIES.find((s) => s.id === item.species)?.label || item.species}</TableCell>
+                        <TableCell>{item.title}</TableCell>
+                        <TableCell>{item.nameEn || "—"}</TableCell>
+                        <TableCell>{breedSizeLabel(item.size)}</TableCell>
+                        <TableCell>
+                          <button
+                            type="button"
+                            disabled={breedBusy}
+                            className="font-semibold text-destructive"
+                            onClick={async () => {
+                              if (!window.confirm(`نژاد «${item.title}» حذف شود؟`)) return;
+                              setBreedBusy(true);
+                              setBreedError("");
+                              try {
+                                const res = await fetch(`/api/breeds/${item.id}`, { method: "DELETE" });
+                                if (!res.ok) {
+                                  setBreedError("حذف نژاد انجام نشد.");
+                                  return;
+                                }
+                                setBreeds((current) => current.filter((b) => b.id !== item.id));
+                              } catch {
+                                setBreedError("حذف نژاد انجام نشد.");
+                              } finally {
+                                setBreedBusy(false);
+                              }
+                            }}
+                          >حذف</button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+
+          {section === "slider" && (
+            <>
+              <div className="mb-5 flex items-center justify-between">
+                <h1 className="text-[22px] font-extrabold text-primary">اسلایدر صفحه اصلی</h1>
+                <Button type="button" onClick={startAddSlide} className="font-bold">افزودن اسلاید</Button>
+              </div>
+              {slideError && <p className="mb-3 text-sm text-destructive">{slideError}</p>}
+              {editingSlideId !== undefined && (
+                <form onSubmit={slideForm.handleSubmit(saveSlide)} className="mb-5 flex flex-col gap-3 rounded-2xl border bg-card p-5">
+                  <ImageUploader
+                    values={slideImage ? [slideImage] : []}
+                    onChange={(urls) => setSlideImage(urls[0] || "")}
+                    max={1}
+                    folder="slides"
+                    label="تصویر اسلاید"
+                    disabled={slideBusy}
+                  />
+                  <div className="flex flex-col gap-1.5">
+                    <Label>عنوان</Label>
+                    <Input {...slideForm.register("title")} placeholder="عنوان اسلاید" />
+                    {slideForm.formState.errors.title && <span className="text-xs text-destructive">{slideForm.formState.errors.title.message}</span>}
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>زیرعنوان</Label>
+                    <Input {...slideForm.register("subtitle")} placeholder="زیرعنوان" />
+                    {slideForm.formState.errors.subtitle && <span className="text-xs text-destructive">{slideForm.formState.errors.subtitle.message}</span>}
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>رنگ پس‌زمینه</Label>
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <input
+                        type="color"
+                        value={slideForm.watch("background") || "#f0ece1"}
+                        onChange={(event) => slideForm.setValue("background", event.target.value, { shouldValidate: true })}
+                        className="h-10 w-14 cursor-pointer rounded-md border bg-background p-1"
+                        aria-label="رنگ پس‌زمینه اسلاید"
+                      />
+                      <Input {...slideForm.register("background")} dir="ltr" className="max-w-[140px] font-mono text-sm" placeholder="#f0ece1" />
+                      {SLIDE_COLORS.map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          onClick={() => slideForm.setValue("background", color, { shouldValidate: true })}
+                          className="h-8 w-8 rounded-full border"
+                          style={{ background: color, outline: slideForm.watch("background") === color ? "2px solid var(--primary)" : undefined }}
+                          aria-label={color}
+                        />
+                      ))}
+                    </div>
+                    {slideForm.formState.errors.background && <span className="text-xs text-destructive">{slideForm.formState.errors.background.message}</span>}
+                    <div
+                      className="mt-1 rounded-xl border px-4 py-3 text-sm text-muted-foreground"
+                      style={{ background: slideForm.watch("background") || "#f0ece1" }}
+                    >
+                      پیش‌نمایش پس‌زمینه اسلاید
+                    </div>
+                  </div>
+                  <div className="flex gap-2.5">
+                    <Button type="submit" disabled={slideBusy} className="font-bold">ذخیره</Button>
+                    <Button type="button" variant="outline" onClick={() => setEditingSlideId(undefined)}>انصراف</Button>
+                  </div>
+                </form>
+              )}
+              <div className="flex flex-col gap-2.5">
+                {slides.map((sl) => (
+                  <div key={sl.id} className="flex items-center gap-4 rounded-xl border bg-card p-3.5">
+                    {sl.image ? (
+                      <ProductImage src={sl.image} alt={sl.title} className="h-14 w-20 rounded-lg" />
+                    ) : (
+                      <div className="h-14 w-20 shrink-0 rounded-lg" style={{ background: sl.tint }} />
+                    )}
+                    <div className="h-8 w-8 shrink-0 rounded-full border" style={{ background: sl.tint }} title={sl.tint} />
+                    <div className="flex-1"><div className="text-sm font-bold">{sl.title}</div><div className="text-xs text-muted-foreground">{sl.subtitle}</div></div>
+                    <button onClick={() => startEditSlide(sl)} className="text-[13px] font-semibold text-primary">ویرایش</button>
+                    <button
+                      disabled={slideBusy}
+                      onClick={async () => {
+                        setSlideBusy(true);
+                        setSlideError("");
+                        try {
+                          const res = await fetch(`/api/slider/${sl.id}`, { method: "DELETE" });
+                          if (!res.ok) {
+                            setSlideError("حذف اسلاید انجام نشد.");
+                            return;
+                          }
+                          setSlides((current) => current.filter((item) => item.id !== sl.id));
+                        } catch {
+                          setSlideError("حذف اسلاید انجام نشد.");
+                        } finally {
+                          setSlideBusy(false);
+                        }
+                      }}
+                      className="text-[13px] font-semibold text-destructive"
+                    >حذف</button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {section === "faq" && (
+            <>
+              <div className="mb-5 flex items-center justify-between">
+                <h1 className="text-[22px] font-extrabold text-primary">سؤالات متداول</h1>
+                <Button type="button" onClick={startAddFaq} className="font-bold">افزودن سؤال</Button>
+              </div>
+              {faqError && <p className="mb-3 text-sm text-destructive">{faqError}</p>}
+              {editingFaqId !== undefined && (
+                <form onSubmit={faqForm.handleSubmit(saveFaq)} className="mb-5 flex flex-col gap-3 rounded-2xl border bg-card p-5">
+                  <div className="flex flex-col gap-1.5">
+                    <Label>سؤال</Label>
+                    <Input {...faqForm.register("question")} placeholder="مثلاً هزینه ارسال چقدر است؟" />
+                    {faqForm.formState.errors.question && <span className="text-xs text-destructive">{faqForm.formState.errors.question.message}</span>}
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>پاسخ</Label>
+                    <Textarea rows={4} {...faqForm.register("answer")} placeholder="پاسخ کامل را بنویسید" />
+                    {faqForm.formState.errors.answer && <span className="text-xs text-destructive">{faqForm.formState.errors.answer.message}</span>}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <Label>ترتیب نمایش</Label>
+                      <Input type="number" min="0" className="w-28" {...faqForm.register("order")} />
+                    </div>
+                    <label className="mt-5 flex items-center gap-2 text-sm font-semibold">
+                      <input type="checkbox" {...faqForm.register("active")} />
+                      نمایش در صفحه اصلی
+                    </label>
+                  </div>
+                  <div className="flex gap-2.5">
+                    <Button type="submit" disabled={faqBusy} className="font-bold">ذخیره</Button>
+                    <Button type="button" variant="outline" onClick={() => setEditingFaqId(undefined)}>انصراف</Button>
+                  </div>
+                </form>
+              )}
+              <div className="flex flex-col gap-2.5">
+                {faqs.length === 0 && <p className="text-sm text-muted-foreground">هنوز سؤالی ثبت نشده است.</p>}
+                {faqs.map((faq) => (
+                  <div key={faq.id} className="rounded-xl border bg-card p-3.5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-bold">{faq.question}</div>
+                        <div className="mt-1 text-[13px] leading-6 text-muted-foreground">{faq.answer}</div>
+                        <div className="mt-1.5 text-[11px] text-muted-foreground">
+                          ترتیب {faq.order.toLocaleString("fa-IR")} · {faq.active ? "فعال" : "مخفی"}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 gap-3">
+                        <button type="button" onClick={() => startEditFaq(faq)} className="text-[13px] font-semibold text-primary">ویرایش</button>
+                        <button
+                          type="button"
+                          disabled={faqBusy}
+                          onClick={async () => {
+                            if (!window.confirm("این سؤال حذف شود؟")) return;
+                            setFaqBusy(true);
+                            setFaqError("");
+                            try {
+                              const res = await fetch(`/api/faq/${faq.id}`, { method: "DELETE" });
+                              if (!res.ok) {
+                                setFaqError("حذف سؤال انجام نشد.");
+                                return;
+                              }
+                              setFaqs((current) => current.filter((item) => item.id !== faq.id));
+                            } catch {
+                              setFaqError("حذف سؤال انجام نشد.");
+                            } finally {
+                              setFaqBusy(false);
+                            }
+                          }}
+                          className="text-[13px] font-semibold text-destructive"
+                        >
+                          حذف
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {section === "orders" && (
+            <>
+              <h1 className="mb-5 text-[22px] font-extrabold text-primary">سفارش‌ها</h1>
+              {orderError && <p className="mb-3 text-sm text-destructive">{orderError}</p>}
+              <div className="rounded-2xl border bg-card">
+                <Table>
+                  <TableHeader><TableRow><TableHead>شماره</TableHead><TableHead>مشتری</TableHead><TableHead>مبلغ</TableHead><TableHead>تاریخ</TableHead><TableHead>وضعیت</TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {orders.length === 0 ? (
+                      <TableRow><TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">هنوز سفارشی ثبت نشده است.</TableCell></TableRow>
+                    ) : orders.map((o) => (
+                      <TableRow key={o.id}>
+                        <TableCell className="font-mono text-xs">{o.id.slice(-8)}</TableCell><TableCell>{o.customer}</TableCell><TableCell>{fmt(o.total)}</TableCell><TableCell>{o.date}</TableCell>
+                        <TableCell>
+                          <Select
+                            value={o.status}
+                            onValueChange={async (v) => {
+                              const previous = o.status;
+                              setOrders((os) => os.map((x) => (x.id === o.id ? { ...x, status: v } : x)));
+                              setOrderError("");
+                              try {
+                                const res = await fetch(`/api/orders/${o.id}`, {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ status: v }),
+                                });
+                                if (!res.ok) {
+                                  setOrders((os) => os.map((x) => (x.id === o.id ? { ...x, status: previous } : x)));
+                                  setOrderError("به‌روزرسانی وضعیت سفارش انجام نشد.");
+                                }
+                              } catch {
+                                setOrders((os) => os.map((x) => (x.id === o.id ? { ...x, status: previous } : x)));
+                                setOrderError("به‌روزرسانی وضعیت سفارش انجام نشد.");
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+                            <SelectContent>{ORDER_STATUS_KEYS.map((s) => <SelectItem key={s} value={s}>{ORDER_STATUS_LABEL[s]}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+
+          {section === "posts" && (
+            <>
+              <div className="mb-5 flex items-center justify-between">
+                <h1 className="text-[22px] font-extrabold text-primary">پست‌های بلاگ</h1>
+                <Button type="button" onClick={startAddPost} className="font-bold">افزودن پست</Button>
+              </div>
+              {postError && <p className="mb-3 text-sm text-destructive">{postError}</p>}
+              {editingPostId !== undefined && (
+                <form onSubmit={postForm.handleSubmit(savePost)} className="mb-5 flex flex-col gap-3 rounded-2xl border bg-card p-5">
+                  <ImageUploader
+                    values={postCover ? [postCover] : []}
+                    onChange={(urls) => setPostCover(urls[0] || "")}
+                    max={1}
+                    folder="posts"
+                    label="تصویر پست"
+                    disabled={postBusy}
+                  />
+                  <div className="flex flex-col gap-1.5">
+                    <Label>عنوان</Label>
+                    <Input {...postForm.register("title")} placeholder="عنوان پست" />
+                    {postForm.formState.errors.title && <span className="text-xs text-destructive">{postForm.formState.errors.title.message}</span>}
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="flex flex-col gap-1.5">
+                      <Label>دسته</Label>
+                      <Input {...postForm.register("category")} placeholder="مثلا تغذیه" />
+                      {postForm.formState.errors.category && <span className="text-xs text-destructive">{postForm.formState.errors.category.message}</span>}
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label>نویسنده</Label>
+                      <Input {...postForm.register("author")} placeholder="نام نویسنده" />
+                      {postForm.formState.errors.author && <span className="text-xs text-destructive">{postForm.formState.errors.author.message}</span>}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>خلاصه</Label>
+                    <Textarea {...postForm.register("excerpt")} placeholder="خلاصه کوتاه پست" rows={2} />
+                    {postForm.formState.errors.excerpt && <span className="text-xs text-destructive">{postForm.formState.errors.excerpt.message}</span>}
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>متن پست</Label>
+                    <Controller
+                      control={postForm.control}
+                      name="body"
+                      render={({ field }) => (
+                        <PostEditor
+                          key={postEditorKey}
+                          initialData={field.value}
+                          disabled={postBusy}
+                          onChange={(html) => {
+                            postHtmlRef.current = html;
+                            field.onChange(html);
+                          }}
+                        />
+                      )}
+                    />
+                    {postForm.formState.errors.body && <span className="text-xs text-destructive">{postForm.formState.errors.body.message}</span>}
+                    {postForm.watch("body") ? (
+                      <div className="rounded-xl border bg-muted/40 p-4">
+                        <div className="mb-2 text-xs font-bold text-muted-foreground">پیش‌نمایش مطلب</div>
+                        <div
+                          className="blog-html text-sm text-foreground/90"
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(postForm.watch("body")) }}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="flex gap-2.5">
+                    <Button type="submit" disabled={postBusy} className="font-bold">ذخیره</Button>
+                    <Button type="button" variant="outline" onClick={() => { setEditingPostId(undefined); setPostCover(""); }}>انصراف</Button>
+                  </div>
+                </form>
+              )}
+              <div className="rounded-2xl border bg-card">
+                <Table>
+                  <TableHeader><TableRow><TableHead>تصویر</TableHead><TableHead>عنوان</TableHead><TableHead>دسته</TableHead><TableHead>نویسنده</TableHead><TableHead>تاریخ</TableHead><TableHead></TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {posts.length === 0 ? (
+                      <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">پستی ثبت نشده. روی «افزودن پست» بزنید.</TableCell></TableRow>
+                    ) : posts.map((p) => (
+                      <TableRow key={p.id}>
+                        <TableCell>
+                          <ProductImage src={p.coverImage} alt={p.title} className="h-11 w-11 rounded-lg" />
+                        </TableCell>
+                        <TableCell>{p.title}</TableCell><TableCell>{p.category}</TableCell><TableCell>{p.author}</TableCell><TableCell>{p.date}</TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <button onClick={() => startEditPost(p)} className="ml-3.5 font-semibold text-primary">ویرایش</button>
+                          <button
+                            disabled={postBusy}
+                            onClick={async () => {
+                              setPostBusy(true);
+                              setPostError("");
+                              try {
+                                const res = await fetch(`/api/blog/${p.id}`, { method: "DELETE" });
+                                if (!res.ok) {
+                                  setPostError("حذف پست انجام نشد.");
+                                  return;
+                                }
+                                setPosts((current) => current.filter((item) => item.id !== p.id));
+                              } catch {
+                                setPostError("حذف پست انجام نشد.");
+                              } finally {
+                                setPostBusy(false);
+                              }
+                            }}
+                            className="font-semibold text-destructive"
+                          >حذف</button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+
+          {section === "reviews" && (
+            <>
+              <h1 className="mb-5 text-[22px] font-extrabold text-primary">نظرات محصولات</h1>
+              {reviewsError && <p className="mb-4 text-sm text-destructive">{reviewsError}</p>}
+              <div className="flex flex-col gap-2.5">
+                {reviews.length === 0 && !reviewsError && (
+                  <div className="rounded-xl border bg-card py-8 text-center text-sm text-muted-foreground">نظری برای بررسی وجود ندارد.</div>
+                )}
+                {reviews.map((c) => (
+                  <div key={c.id} className="rounded-xl border bg-card p-4">
+                    <div className="mb-1.5 flex justify-between">
+                      <span className="text-[13px] font-bold">{c.name}</span>
+                      <span className={`text-xs font-bold ${c.status === "approved" ? "text-primary" : c.status === "pending" ? "text-[#c17d2f]" : "text-destructive"}`}>
+                        {c.status === "approved" ? "تایید شده" : c.status === "pending" ? "در انتظار تایید" : "رد شده"}
+                      </span>
+                    </div>
+                    <div className="mb-2 text-xs text-muted-foreground">روی محصول: {c.productName || "—"}{c.rating ? ` — امتیاز ${c.rating} از ۵` : ""}</div>
+                    <div className="mb-3 text-sm leading-relaxed text-muted-foreground">{c.text}</div>
+                    {c.status === "pending" && (
+                      <div className="flex gap-3.5">
+                        <button
+                          onClick={async () => {
+                            const res = await fetch(`/api/reviews/${c.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "approved" }) });
+                            if (res.ok) setReviews((cs) => cs.map((x) => (x.id === c.id ? { ...x, status: "approved" } : x)));
+                          }}
+                          className="text-[13px] font-semibold text-primary"
+                        >تایید</button>
+                        <button
+                          onClick={async () => {
+                            const res = await fetch(`/api/reviews/${c.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "rejected" }) });
+                            if (res.ok) setReviews((cs) => cs.map((x) => (x.id === c.id ? { ...x, status: "rejected" } : x)));
+                          }}
+                          className="text-[13px] font-semibold text-destructive"
+                        >رد</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {section === "comments" && (
+            <>
+              <h1 className="mb-5 text-[22px] font-extrabold text-primary">نظرات بلاگ</h1>
+              {commentsError && <p className="mb-4 text-sm text-destructive">{commentsError}</p>}
+              <div className="flex flex-col gap-2.5">
+                {comments.length === 0 && !commentsError && (
+                  <div className="rounded-xl border bg-card py-8 text-center text-sm text-muted-foreground">نظری برای بررسی وجود ندارد.</div>
+                )}
+                {comments.map((c) => (
+                  <div key={c.id} className="rounded-xl border bg-card p-4">
+                    <div className="mb-1.5 flex justify-between">
+                      <span className="text-[13px] font-bold">{c.name}</span>
+                      <span className={`text-xs font-bold ${c.status === "approved" ? "text-primary" : c.status === "pending" ? "text-[#c17d2f]" : "text-destructive"}`}>
+                        {c.status === "approved" ? "تایید شده" : c.status === "pending" ? "در انتظار تایید" : "رد شده"}
+                      </span>
+                    </div>
+                    <div className="mb-2 text-xs text-muted-foreground">روی پست: {c.postTitle}</div>
+                    <div className="mb-3 text-sm leading-relaxed text-muted-foreground">{c.text}</div>
+                    {c.status === "pending" && (
+                      <div className="flex gap-3.5">
+                        <button
+                          onClick={async () => {
+                            const res = await fetch(`/api/blog-comments/${c.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "approved" }) });
+                            if (res.ok) setComments((cs) => cs.map((x) => (x.id === c.id ? { ...x, status: "approved" } : x)));
+                          }}
+                          className="text-[13px] font-semibold text-primary"
+                        >تایید</button>
+                        <button
+                          onClick={async () => {
+                            const res = await fetch(`/api/blog-comments/${c.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "rejected" }) });
+                            if (res.ok) setComments((cs) => cs.map((x) => (x.id === c.id ? { ...x, status: "rejected" } : x)));
+                          }}
+                          className="text-[13px] font-semibold text-destructive"
+                        >رد</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {section === "users" && (
+            <>
+              <h1 className="mb-5 text-[22px] font-extrabold text-primary">کاربران</h1>
+              <div className="rounded-2xl border bg-card">
+                <Table>
+                  <TableHeader><TableRow><TableHead>نام</TableHead><TableHead>موبایل</TableHead><TableHead>تعداد سفارش</TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {users.length === 0 ? (
+                      <TableRow><TableCell colSpan={3} className="py-8 text-center text-sm text-muted-foreground">کاربری ثبت نشده است.</TableCell></TableRow>
+                    ) : users.map((u) => (
+                      <TableRow key={u.id}>
+                        <TableCell>{u.name}</TableCell>
+                        <TableCell>{u.phone !== "—" ? u.phone : u.email}</TableCell>
+                        <TableCell>{orders.filter((o) => o.userId === u.id).length}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+    </>
+  );
+}

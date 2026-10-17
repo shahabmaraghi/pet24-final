@@ -14,7 +14,7 @@ export async function GET(req: Request) {
       await ensureCategories();
       return Category.collection
         .find(includeInactive ? {} : ACTIVE_CATEGORY_FILTER)
-        .sort({ name: 1 })
+        .sort({ order: 1, name: 1 })
         .toArray();
     });
     return NextResponse.json(items.map(serializeCategory), { headers: { "Cache-Control": "no-store" } });
@@ -37,12 +37,15 @@ export async function POST(req: Request) {
     if (taken.name === name) return NextResponse.json({ error: "این دسته‌بندی از قبل وجود دارد." }, { status: 409 });
     id = `${id}-${Date.now()}`;
   }
+  const last = await Category.collection.find({}).sort({ order: -1 }).limit(1).toArray();
+  const order = Number(last[0]?.order ?? -1) + 1;
   const category = await Category.create({
     id,
     name,
     tint: body.tint || "#6b7280",
     image: body.image,
     active: body.active !== false,
+    order,
   });
   return NextResponse.json(serializeCategory(category.toObject()), { status: 201 });
 }

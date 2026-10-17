@@ -4,6 +4,7 @@ export type StoreCategory = {
   tint: string;
   image?: string;
   active: boolean;
+  order: number;
 };
 
 export function serializeCategory(item: {
@@ -13,6 +14,7 @@ export function serializeCategory(item: {
   tint?: unknown;
   image?: unknown;
   active?: unknown;
+  order?: unknown;
 }): StoreCategory {
   return {
     id: String(item.id ?? ""),
@@ -20,6 +22,7 @@ export function serializeCategory(item: {
     tint: String(item.tint || "#6b7280"),
     image: item.image ? String(item.image) : undefined,
     active: item.active !== false,
+    order: Number(item.order ?? 0),
   };
 }
 

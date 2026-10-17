@@ -9,7 +9,7 @@ export type { StoreCategory };
 export async function getStoreCategories(): Promise<StoreCategory[]> {
   return withMongoRetry(async () => {
     await ensureCategories();
-    const items = await Category.collection.find(ACTIVE_CATEGORY_FILTER).sort({ name: 1 }).toArray();
+    const items = await Category.collection.find(ACTIVE_CATEGORY_FILTER).sort({ order: 1, name: 1 }).toArray();
     return items.map(serializeCategory);
   });
 }
