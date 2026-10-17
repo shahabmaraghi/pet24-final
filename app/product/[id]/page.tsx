@@ -191,11 +191,13 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
               افزودن به سبد خرید
             </Button>
           </div>
-          <div className="grid grid-cols-2 gap-2.5 border-t pt-5">
-            {product.specs.map((s) => (
-              <div key={s.k} className="text-[13px] text-muted-foreground"><span className="font-semibold text-foreground">{s.k}:</span> {s.v}</div>
-            ))}
-          </div>
+          {product.specs.length > 0 ? (
+            <div className="grid grid-cols-2 gap-2.5 border-t pt-5">
+              {product.specs.map((s) => (
+                <div key={s.k} className="text-[13px] text-muted-foreground"><span className="font-semibold text-foreground">{s.k}:</span> {s.v}</div>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
       <div className="mb-14">

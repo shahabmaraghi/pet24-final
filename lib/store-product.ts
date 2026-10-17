@@ -35,7 +35,11 @@ export function serializeProduct(doc: any): StoreProduct {
     badge: obj.badge,
     featured: Boolean(obj.featured),
     desc: String(obj.desc ?? ""),
-    specs: Array.isArray(obj.specs) ? obj.specs.map((spec: { k?: string; v?: string }) => ({ k: String(spec.k ?? ""), v: String(spec.v ?? "") })) : [],
+    specs: Array.isArray(obj.specs)
+      ? obj.specs
+          .map((spec: { k?: string; v?: string }) => ({ k: String(spec.k ?? ""), v: String(spec.v ?? "") }))
+          .filter((spec: { k: string }) => spec.k !== "منبع")
+      : [],
     stock: Number(obj.stock ?? 0),
     images: Array.isArray(obj.images) ? obj.images.map(String).filter(Boolean) : [],
     brandId,

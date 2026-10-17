@@ -253,8 +253,7 @@ async function importProducts(products) {
   let inserted = 0;
   let updated = 0;
   for (const p of products) {
-    const sourceSpec = { k: "منبع", v: p.sourceUrl };
-    const specs = [...(p.specs || []).filter((s) => s.k !== "منبع"), sourceSpec];
+    const specs = (p.specs || []).filter((s) => s.k !== "منبع");
     const existing = await Product.findOne({
       $or: [{ name: p.name }, { specs: { $elemMatch: { k: "منبع", v: p.sourceUrl } } }],
     });
