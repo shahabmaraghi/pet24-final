@@ -126,7 +126,7 @@ export function ProductImageSlider({
               aria-label="تصویر قبلی"
               onPointerDown={(event) => event.stopPropagation()}
               onClick={() => goTo(current - 1)}
-              className="absolute right-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-primary shadow-lg backdrop-blur-sm opacity-100 transition hover:bg-white md:opacity-0 md:group-hover:opacity-100"
+              className="absolute right-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card/90 text-primary shadow-lg backdrop-blur-sm opacity-100 transition hover:bg-card md:opacity-0 md:group-hover:opacity-100"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
@@ -135,7 +135,7 @@ export function ProductImageSlider({
               aria-label="تصویر بعدی"
               onPointerDown={(event) => event.stopPropagation()}
               onClick={() => goTo(current + 1)}
-              className="absolute left-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-primary shadow-lg backdrop-blur-sm opacity-100 transition hover:bg-white md:opacity-0 md:group-hover:opacity-100"
+              className="absolute left-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card/90 text-primary shadow-lg backdrop-blur-sm opacity-100 transition hover:bg-card md:opacity-0 md:group-hover:opacity-100"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>

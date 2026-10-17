@@ -7,6 +7,7 @@ import { Menu, Search, User, ShoppingCart, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PawLogo } from "@/components/paw-logo";
 import { CategoryIcon } from "@/components/category-icon";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { useStoreCategories } from "@/lib/use-store-categories";
 import { useCart } from "@/lib/cart-store";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -55,10 +56,10 @@ export function SiteHeader() {
                 </Link>
               ))}
               <Link href="/discounts" onClick={() => setOpen(false)} className="mt-1.5 flex min-h-11 items-center gap-3 rounded-xl border-t px-2.5 py-3.5 pt-4 text-[15px] font-semibold">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#f7e3e3]">
-                  <Tag className="h-[18px] w-[18px] text-[#b23b3b]" strokeWidth={1.6} />
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[color-mix(in_oklab,var(--sale)_18%,transparent)]">
+                  <Tag className="h-[18px] w-[18px] text-[var(--sale)]" strokeWidth={1.6} />
                 </div>
-                <span className="text-[#b23b3b]">تخفیف‌ها</span>
+                <span className="text-[var(--sale)]">تخفیف‌ها</span>
               </Link>
               <Link href="/about" onClick={() => setOpen(false)} className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 py-3.5 text-[15px] font-semibold">
                 درباره ما
@@ -76,14 +77,14 @@ export function SiteHeader() {
 
           <div className="order-3 flex min-w-[160px] flex-[0_1_260px] basis-full gap-2 sm:order-2 sm:basis-auto">
             <div className="relative w-full">
-              <div className="flex w-full items-center gap-2 rounded-full bg-[#eeeae0] px-3.5 py-2.5">
-                <Search className="h-4 w-4 shrink-0 text-[#8a8471]" strokeWidth={1.8} />
+              <div className="flex w-full items-center gap-2 rounded-full bg-[var(--search-surface)] px-3.5 py-2.5 ring-1 ring-border/60">
+                <Search className="h-4 w-4 shrink-0 text-[var(--search-placeholder)]" strokeWidth={1.8} />
                 <input
                   placeholder="جستجو"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onFocus={() => setSearchFocused(true)}
-                  className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-[#8a8471]"
+                  className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-[var(--search-placeholder)]"
                 />
               </div>
               {searchFocused && (
@@ -108,15 +109,16 @@ export function SiteHeader() {
             </div>
           </div>
 
-          <div className="order-2 ms-auto flex items-center gap-3 sm:order-3">
-            <Link href={session?.user ? "/account" : "/login"} className="flex h-10 w-10 items-center justify-center rounded-xl border-[1.5px] hover:bg-accent" aria-label="حساب کاربری">
+          <div className="order-2 ms-auto flex items-center gap-2.5 sm:order-3 sm:gap-3">
+            <ThemeToggle />
+            <Link href={session?.user ? "/account" : "/login"} className="flex h-10 w-10 items-center justify-center rounded-xl border-[1.5px] border-border hover:bg-accent" aria-label="حساب کاربری">
               <User className="h-[19px] w-[19px] text-primary" strokeWidth={1.7} />
             </Link>
 
             <Button asChild variant="outline" className="relative gap-2 rounded-xl border-[1.5px] border-primary font-bold text-primary hover:bg-accent">
               <Link href="/cart">
                 <ShoppingCart className="h-[17px] w-[17px]" strokeWidth={1.8} />
-                سبد خرید
+                <span className="hidden sm:inline">سبد خرید</span>
                 {count > 0 && (
                   <span className="absolute -left-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#c17d2f] px-1 text-[11px] font-bold text-white">
                     {count}
@@ -142,7 +144,7 @@ export function SiteHeader() {
             })}
           </nav>
           <div className="hidden shrink-0 items-center gap-5 border-r pr-4 md:flex">
-            <Link href="/discounts" className="flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold text-[#b23b3b]">
+            <Link href="/discounts" className="flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold text-[var(--sale)]">
               <Tag className="h-4 w-4" strokeWidth={1.6} />
               تخفیف‌ها
             </Link>

@@ -19,9 +19,9 @@ export function ProductBrandMark({
 
   if (size === "lg") {
     return (
-      <div className={cn("inline-flex max-w-full items-center gap-3 rounded-2xl border bg-white px-3 py-2.5 shadow-sm", className)}>
+      <div className={cn("inline-flex max-w-full items-center gap-3 rounded-2xl border bg-card px-3 py-2.5 shadow-sm", className)}>
         {brand.logo ? (
-          <div className="flex h-14 w-[5.5rem] shrink-0 items-center justify-center rounded-xl border border-black/5 bg-[#f6f4ef] p-1.5">
+          <div className="flex h-14 w-[5.5rem] shrink-0 items-center justify-center rounded-xl border border-border bg-muted p-1.5">
             <img src={brand.logo} alt={label} className="max-h-full max-w-full object-contain" />
           </div>
         ) : null}
@@ -39,11 +39,11 @@ export function ProductBrandMark({
   }
 
   return (
-    <div className={cn("inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-xl border bg-white px-1.5 py-1", className)}>
+    <div className={cn("inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-xl border bg-card px-1.5 py-1", className)}>
       {brand.logo ? (
         <div
           className={cn(
-            "flex shrink-0 items-center justify-center overflow-hidden rounded-md bg-white",
+            "flex shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted",
             size === "md" ? "h-10 w-[4.25rem]" : "h-8 w-14"
           )}
         >

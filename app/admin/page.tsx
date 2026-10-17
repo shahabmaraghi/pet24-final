@@ -7,6 +7,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { LayoutGrid, Package, Tag, GalleryHorizontal, ClipboardList, Users, LogOut, Menu, MessageSquare, PawPrint, CircleHelp, Award, ArrowLeftRight } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -654,6 +655,10 @@ export default function AdminPage() {
         انتقال تولید
       </Link>
       <div className="mt-auto flex flex-col gap-1">
+        <div className="flex items-center justify-between px-3.5 py-2">
+          <span className="text-[13px] text-muted-foreground">ظاهر</span>
+          <ThemeToggle />
+        </div>
         <button onClick={() => signOut({ callbackUrl: "/" })} className="flex items-center gap-2 rounded-[10px] px-3.5 py-3 text-sm font-semibold text-destructive">
           <LogOut className="h-4 w-4" />خروج از حساب
         </button>
@@ -672,6 +677,9 @@ export default function AdminPage() {
           <SheetContent side="right" className="flex flex-col gap-1 p-5"><NavList onNavigate={() => setNavOpen(false)} /></SheetContent>
         </Sheet>
         <div className="text-[15px] font-extrabold text-primary">پنل مدیریت</div>
+        <div className="ms-auto">
+          <ThemeToggle />
+        </div>
       </div>
 
       <div className="grid min-h-screen md:grid-cols-[230px_1fr]">

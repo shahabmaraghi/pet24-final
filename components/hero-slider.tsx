@@ -122,7 +122,7 @@ export function HeroSlider({ initialSlides = [] }: { initialSlides?: StoreSlide[
             type="button"
             aria-label="اسلاید قبلی"
             onClick={() => setIndex((i) => (i - 1 + slides.length) % slides.length)}
-            className="absolute right-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white text-primary shadow-md hover:bg-white"
+            className="absolute right-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-primary shadow-md hover:bg-accent"
           >
             <ChevronRight className="h-5 w-5" />
           </button>
@@ -130,7 +130,7 @@ export function HeroSlider({ initialSlides = [] }: { initialSlides?: StoreSlide[
             type="button"
             aria-label="اسلاید بعدی"
             onClick={() => setIndex((i) => (i + 1) % slides.length)}
-            className="absolute left-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white text-primary shadow-md hover:bg-white"
+            className="absolute left-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-primary shadow-md hover:bg-accent"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>

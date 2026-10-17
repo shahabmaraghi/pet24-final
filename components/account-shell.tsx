@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { User, MapPin, ClipboardList, CreditCard, Heart, History, PawPrint, LogOut, Menu } from "lucide-react";
 import { PawLogo } from "@/components/paw-logo";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 export const ACCOUNT_NAV = [
@@ -46,6 +47,10 @@ function AccountNavList({
         );
       })}
       <div className="mt-auto flex flex-col gap-1 border-t pt-2">
+        <div className="flex items-center justify-between px-3.5 py-2">
+          <span className="text-[13px] text-muted-foreground">ظاهر</span>
+          <ThemeToggle />
+        </div>
         <button
           type="button"
           onClick={() => signOut({ callbackUrl: "/" })}
@@ -101,6 +106,9 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
           </SheetContent>
         </Sheet>
         <div className="text-[15px] font-extrabold text-primary">حساب کاربری</div>
+        <div className="ms-auto">
+          <ThemeToggle />
+        </div>
       </div>
 
       <div className="flex min-h-[calc(100vh-57px)] md:min-h-screen">
