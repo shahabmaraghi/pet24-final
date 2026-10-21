@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     }
 
     const folder = String(formData.get("folder") || "products").replace(/[^a-z0-9_-]/gi, "") || "products";
-    if (session.user.role !== "admin" && folder !== "pets") {
+    if (session.user.role !== "admin" && folder !== "pets" && folder !== "rehoming") {
       return NextResponse.json({ error: "دسترسی غیرمجاز." }, { status: 403 });
     }
     const buffer = Buffer.from(await file.arrayBuffer());

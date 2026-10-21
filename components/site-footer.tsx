@@ -28,6 +28,8 @@ export function SiteFooter() {
           <div className="flex flex-col gap-2.5 text-[13px]">
             <div className="mb-0.5 font-bold text-white">دسترسی سریع</div>
             <Link href="/#brands" className="text-[#c9c3b2] hover:text-white">برندها</Link>
+            <Link href="/pets" className="text-[#c9c3b2] hover:text-white">پروفایل حیوانات</Link>
+            <Link href="/rehoming" className="text-[#c9c3b2] hover:text-white">واگذاری</Link>
             <Link href="/discounts" className="text-[#c9c3b2] hover:text-white">تخفیف‌ها</Link>
             <Link href="/about" className="text-[#c9c3b2] hover:text-white">درباره ما</Link>
             <Link href="/blog" className="text-[#c9c3b2] hover:text-white">بلاگ</Link>

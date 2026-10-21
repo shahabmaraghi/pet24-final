@@ -12,12 +12,12 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
 
   if (bare) return <>{children}</>;
 
-  const isHome = pathname === "/";
+  const fullBleed = pathname === "/" || pathname === "/pets" || pathname.startsWith("/pets/") || pathname === "/rehoming" || pathname.startsWith("/rehoming/");
 
   return (
     <div className="flex min-h-screen flex-col">
       <SiteHeader />
-      <main className={isHome ? "w-full grow pb-16" : "mx-auto w-full max-w-[1280px] grow px-6 py-8 pb-16"}>
+      <main className={fullBleed ? "w-full grow pb-16" : "mx-auto w-full max-w-[1280px] grow px-6 py-8 pb-16"}>
         {children}
       </main>
       <SiteFooter />

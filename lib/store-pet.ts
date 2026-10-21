@@ -38,6 +38,11 @@ export type StorePet = {
   emergencyContactPhone: string;
 };
 
+export type PublicPet = Pick<
+  StorePet,
+  "id" | "name" | "photo" | "species" | "breed" | "province" | "city" | "birthday" | "weightKg" | "gender"
+>;
+
 const SPECIES_IDS = new Set<string>(PET_SPECIES.map((item) => item.id));
 const GENDER_IDS = new Set<string>(PET_GENDERS.map((item) => item.id));
 
@@ -89,6 +94,22 @@ export function serializePet(doc: any): StorePet {
     microchipNumber: String(obj.microchipNumber || "").trim(),
     emergencyContactName: String(obj.emergencyContactName || "").trim(),
     emergencyContactPhone: String(obj.emergencyContactPhone || "").trim(),
+  };
+}
+
+export function serializePublicPet(doc: any): PublicPet {
+  const pet = serializePet(doc);
+  return {
+    id: pet.id,
+    name: pet.name,
+    photo: pet.photo,
+    species: pet.species,
+    breed: pet.breed,
+    province: pet.province,
+    city: pet.city,
+    birthday: pet.birthday,
+    weightKg: pet.weightKg,
+    gender: pet.gender,
   };
 }
 

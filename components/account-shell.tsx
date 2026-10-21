@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { User, MapPin, ClipboardList, CreditCard, Heart, History, PawPrint, LogOut, Menu } from "lucide-react";
+import { User, MapPin, ClipboardList, CreditCard, Heart, History, PawPrint, HeartHandshake, LogOut, Menu } from "lucide-react";
 import { PawLogo } from "@/components/paw-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 export const ACCOUNT_NAV = [
   { href: "/account/profile", label: "پروفایل", Icon: User },
   { href: "/account/pets", label: "حیوانات من", Icon: PawPrint },
+  { href: "/rehoming", label: "واگذاری", Icon: HeartHandshake },
   { href: "/account/addresses", label: "آدرس‌ها", Icon: MapPin },
   { href: "/account/orders", label: "سفارشات", Icon: ClipboardList },
   { href: "/account/payments", label: "پرداخت‌ها", Icon: CreditCard },
