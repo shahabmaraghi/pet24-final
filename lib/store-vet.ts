@@ -123,8 +123,9 @@ export function serializeVet(doc: any, commentCount = 0, includeAccount = false)
   return { ...publicVet, accountEmail: String(obj.accountEmail || "").trim(), listingStatus };
 }
 
-export function isListedVet(doc: { status?: unknown }) {
-  return doc.status !== "pending" && doc.status !== "suspended";
+export function isListedVet(doc: unknown) {
+  const status = doc && typeof doc === "object" && "status" in doc ? (doc as { status?: unknown }).status : undefined;
+  return status !== "pending" && status !== "suspended";
 }
 
 export function listingStatusLabel(status?: string) {
