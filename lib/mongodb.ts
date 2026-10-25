@@ -1,4 +1,5 @@
 import { MongoClient } from "mongodb";
+import { mongoLookup } from "@/lib/mongo-lookup";
 
 const uri = process.env.MONGODB_URI;
 
@@ -17,10 +18,10 @@ function getClientPromise(): Promise<MongoClient> {
     );
   }
   if (process.env.NODE_ENV === "development") {
-    if (!global._mongoClientPromise) global._mongoClientPromise = new MongoClient(uri).connect();
+    if (!global._mongoClientPromise) global._mongoClientPromise = new MongoClient(uri, { family: 4, lookup: mongoLookup }).connect();
     return global._mongoClientPromise;
   }
-  return new MongoClient(uri).connect();
+  return new MongoClient(uri, { family: 4, lookup: mongoLookup }).connect();
 }
 
 const clientPromise = uri ? getClientPromise() : getClientPromise().catch((e) => { throw e; });

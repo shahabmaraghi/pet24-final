@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Truck, ShieldCheck, BadgeCheck, Calendar, User as UserIcon, ChevronLeft } from "lucide-react";
+import { Truck, ShieldCheck, BadgeCheck, Calendar, User as UserIcon, ChevronLeft, Stethoscope } from "lucide-react";
 import { HeroSlider } from "@/components/hero-slider";
 import { FeaturedProductsCarousel } from "@/components/featured-products-carousel";
 import { HomeBrandsCarousel } from "@/components/home-brands-carousel";
@@ -57,6 +57,20 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+
+      <Link href="/vets" className="mb-12 flex items-center gap-4 rounded-2xl border bg-[#16342c] px-5 py-4 text-[#f3faf6] transition hover:-translate-y-0.5 hover:shadow-lg">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10">
+          <Stethoscope className="h-6 w-6" strokeWidth={1.7} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[15px] font-extrabold">نوبت دامپزشک</span>
+          <span className="mt-1 block text-[13px] leading-6 text-[#d5ebe3]">کلینیک شهر خود را پیدا کنید، آدرس و شماره را ببینید و نوبت بگیرید.</span>
+        </span>
+        <span className="hidden shrink-0 items-center gap-1 text-[13px] font-bold sm:inline-flex">
+          دامپزشکان
+          <ChevronLeft className="h-4 w-4" />
+        </span>
+      </Link>
 
       <section className="mb-12">
         <h2 className="mb-5 text-[22px] font-extrabold text-primary">پرفروش‌ترین محصولات</h2>

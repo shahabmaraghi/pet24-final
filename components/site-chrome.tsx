@@ -4,7 +4,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 
 // Admin/account panels own their full-page chrome (sidebar nav), so skip the shop header/footer there.
-const NO_CHROME_PREFIXES = ["/admin", "/account", "/blog", "/login", "/register"];
+const NO_CHROME_PREFIXES = ["/admin", "/account", "/blog", "/login", "/register", "/vet"];
 
 export function SiteChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -12,7 +12,14 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
 
   if (bare) return <>{children}</>;
 
-  const fullBleed = pathname === "/" || pathname === "/pets" || pathname.startsWith("/pets/") || pathname === "/rehoming" || pathname.startsWith("/rehoming/");
+  const fullBleed =
+    pathname === "/" ||
+    pathname === "/pets" ||
+    pathname.startsWith("/pets/") ||
+    pathname === "/rehoming" ||
+    pathname.startsWith("/rehoming/") ||
+    pathname === "/vets" ||
+    pathname.startsWith("/vets/");
 
   return (
     <div className="flex min-h-screen flex-col">

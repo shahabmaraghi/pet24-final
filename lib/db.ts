@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { mongoLookup } from "@/lib/mongo-lookup";
 
 const MONGODB_URI = process.env.MONGODB_URI as string;
 const CONNECT_TIMEOUT_MS = 8000;
@@ -64,6 +65,7 @@ export async function dbConnect() {
           socketTimeoutMS: 20000,
           maxPoolSize: 8,
           family: 4,
+          lookup: mongoLookup,
         });
       }
       cached.conn = await cached.promise;

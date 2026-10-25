@@ -3,7 +3,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Menu, Search, User, ShoppingCart, Tag, PawPrint, HeartHandshake } from "lucide-react";
+import { Menu, Search, User, ShoppingCart, Tag, PawPrint, HeartHandshake, Stethoscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PawLogo } from "@/components/paw-logo";
 import { CategoryIcon } from "@/components/category-icon";
@@ -60,6 +60,12 @@ export function SiteHeader() {
                   <PawPrint className="h-[18px] w-[18px]" strokeWidth={1.6} />
                 </div>
                 پروفایل‌ها
+              </Link>
+              <Link href="/vets" onClick={() => setOpen(false)} className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 py-3.5 text-[15px] font-semibold">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-accent">
+                  <Stethoscope className="h-[18px] w-[18px] text-primary" strokeWidth={1.6} />
+                </div>
+                دامپزشکان
               </Link>
               <Link href="/rehoming" onClick={() => setOpen(false)} className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 py-3.5 text-[15px] font-semibold">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#f6ead8]">
@@ -159,6 +165,10 @@ export function SiteHeader() {
             <Link href="/pets" className={`flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold ${pathname === "/pets" || pathname.startsWith("/pets/") ? "text-primary" : "text-muted-foreground hover:text-primary"}`}>
               <PawPrint className="h-4 w-4" strokeWidth={1.7} />
               پروفایل‌ها
+            </Link>
+            <Link href="/vets" className={`flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold ${pathname === "/vets" || pathname.startsWith("/vets/") ? "text-primary" : "text-muted-foreground hover:text-primary"}`}>
+              <Stethoscope className="h-4 w-4" strokeWidth={1.7} />
+              دامپزشکان
             </Link>
             <Link href="/rehoming" className={`flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold ${pathname === "/rehoming" || pathname.startsWith("/rehoming/") ? "text-primary" : "text-muted-foreground hover:text-primary"}`}>
               <HeartHandshake className="h-4 w-4" strokeWidth={1.7} />

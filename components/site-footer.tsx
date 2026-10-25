@@ -30,6 +30,9 @@ export function SiteFooter() {
             <Link href="/#brands" className="text-[#c9c3b2] hover:text-white">برندها</Link>
             <Link href="/pets" className="text-[#c9c3b2] hover:text-white">پروفایل حیوانات</Link>
             <Link href="/rehoming" className="text-[#c9c3b2] hover:text-white">واگذاری</Link>
+            <Link href="/vets" className="text-[#c9c3b2] hover:text-white">دامپزشکان</Link>
+            <Link href="/login?next=/vet" className="text-[#c9c3b2] hover:text-white">ورود پنل دامپزشک</Link>
+            <Link href="/register/vet" className="text-[#c9c3b2] hover:text-white">ثبت‌نام دامپزشک</Link>
             <Link href="/discounts" className="text-[#c9c3b2] hover:text-white">تخفیف‌ها</Link>
             <Link href="/about" className="text-[#c9c3b2] hover:text-white">درباره ما</Link>
             <Link href="/blog" className="text-[#c9c3b2] hover:text-white">بلاگ</Link>

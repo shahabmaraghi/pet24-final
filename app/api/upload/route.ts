@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
 import { requireAuth } from "@/lib/api-helpers";
+import { findVetForSession } from "@/lib/vet-access";
 import { uploadBuffer } from "@/lib/cloudinary";
 
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
@@ -27,8 +28,11 @@ export async function POST(req: Request) {
     }
 
     const folder = String(formData.get("folder") || "products").replace(/[^a-z0-9_-]/gi, "") || "products";
-    if (session.user.role !== "admin" && folder !== "pets" && folder !== "rehoming") {
-      return NextResponse.json({ error: "دسترسی غیرمجاز." }, { status: 403 });
+    if (session.user.role !== "admin") {
+      const ownsClinic = folder === "vets" && (await findVetForSession(session));
+      if (!ownsClinic && folder !== "pets" && folder !== "rehoming") {
+        return NextResponse.json({ error: "دسترسی غیرمجاز." }, { status: 403 });
+      }
     }
     const buffer = Buffer.from(await file.arrayBuffer());
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME?.trim();

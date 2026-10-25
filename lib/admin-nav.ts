@@ -10,6 +10,7 @@ import {
   CircleHelp,
   Award,
   HeartHandshake,
+  Stethoscope,
   type LucideIcon,
 } from "lucide-react";
 
@@ -26,7 +27,8 @@ export type AdminSectionId =
   | "reviews"
   | "comments"
   | "users"
-  | "rehoming";
+  | "rehoming"
+  | "vets";
 
 export type AdminNavItem = {
   id: AdminSectionId;
@@ -46,6 +48,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { id: "orders", label: "سفارش‌ها", href: "/admin/orders", Icon: ClipboardList },
   { id: "posts", label: "پست‌های بلاگ", href: "/admin/posts", Icon: ClipboardList },
   { id: "rehoming", label: "واگذاری", href: "/admin/rehoming", Icon: HeartHandshake },
+  { id: "vets", label: "دامپزشکان", href: "/admin/vets", Icon: Stethoscope },
   { id: "reviews", label: "نظرات محصولات", href: "/admin/reviews", Icon: MessageSquare },
   { id: "comments", label: "نظرات بلاگ", href: "/admin/comments", Icon: ClipboardList },
   { id: "users", label: "کاربران", href: "/admin/users", Icon: Users },

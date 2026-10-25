@@ -19,6 +19,11 @@ type FormData = z.infer<typeof schema>;
 
 export default function LoginPage() {
   const [serverError, setServerError] = React.useState("");
+  const [vetLogin, setVetLogin] = React.useState(false);
+
+  React.useEffect(() => {
+    setVetLogin(new URLSearchParams(window.location.search).get("next") === "/vet");
+  }, []);
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { email: "", password: "" },
@@ -41,8 +46,21 @@ export default function LoginPage() {
         return;
       }
       const session = await getSession();
-      const nextUrl = session?.user?.role === "admin" ? "/admin" : "/account";
-      window.location.assign(nextUrl);
+      const next = new URLSearchParams(window.location.search).get("next");
+      if (session?.user?.role === "admin" && next !== "/vet") {
+        window.location.assign("/admin");
+        return;
+      }
+      const vetRes = await fetch("/api/vet/me", { cache: "no-store" });
+      if (next === "/vet") {
+        if (!vetRes.ok) {
+          setServerError("این حساب به پنل دامپزشک وصل نیست. ایمیل ورود باید همان ایمیلی باشد که مدیر برای کلینیک ثبت کرده است.");
+          return;
+        }
+        window.location.assign("/vet");
+        return;
+      }
+      window.location.assign(vetRes.ok ? "/vet" : "/account");
     } catch {
       setServerError("ورود انجام نشد. دوباره تلاش کنید.");
     }
@@ -68,7 +86,9 @@ export default function LoginPage() {
       </form>
       <p className="mt-4.5 text-center text-[13px] text-muted-foreground">
         حساب کاربری ندارید؟{" "}
-        <Link href="/register" className="font-bold text-primary">ثبت‌نام کنید</Link>
+        <Link href={vetLogin ? "/register/vet" : "/register"} className="font-bold text-primary">
+          {vetLogin ? "ثبت‌نام دامپزشک" : "ثبت‌نام کنید"}
+        </Link>
       </p>
       <Link href="/" className="mt-3 block text-center text-[13px] text-muted-foreground">بازگشت به فروشگاه</Link>
     </AuthCard>

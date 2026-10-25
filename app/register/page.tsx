@@ -107,6 +107,10 @@ export default function RegisterPage() {
         قبلاً ثبت‌نام کرده‌اید؟{" "}
         <Link href="/login" className="font-bold text-primary">ورود</Link>
       </p>
+      <p className="mt-2 text-center text-[13px] text-muted-foreground">
+        دامپزشک هستید؟{" "}
+        <Link href="/register/vet" className="font-bold text-primary">ثبت‌نام جداگانه دامپزشک</Link>
+      </p>
       <Link href="/" className="mt-3 block text-center text-[13px] text-muted-foreground">بازگشت به فروشگاه</Link>
     </AuthCard>
   );
