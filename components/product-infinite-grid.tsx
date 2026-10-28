@@ -13,6 +13,8 @@ export function ProductInfiniteGrid({
   loadMore,
   emptyMessage,
   showEndMessage = true,
+  columnsClassName = "grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4",
+  leading,
 }: {
   products: StoreProduct[];
   loading: boolean;
@@ -21,6 +23,8 @@ export function ProductInfiniteGrid({
   loadMore: () => void;
   emptyMessage: string;
   showEndMessage?: boolean;
+  columnsClassName?: string;
+  leading?: React.ReactNode;
 }) {
   const sentinelRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -37,15 +41,31 @@ export function ProductInfiniteGrid({
     return () => observer.disconnect();
   }, [hasMore, loadMore, loading, products.length]);
 
-  if (loading) return <ProductGridSkeleton count={8} />;
+  if (loading) {
+    if (!leading) return <ProductGridSkeleton count={8} />;
+    return (
+      <div className={`grid items-start ${columnsClassName} [grid-auto-flow:dense]`}>
+        <div className="row-span-2 self-stretch">{leading}</div>
+        {Array.from({ length: 8 }, (_, i) => (
+          <ProductCardSkeleton key={i} />
+        ))}
+      </div>
+    );
+  }
 
   if (products.length === 0) {
-    return <div className="py-16 text-center text-muted-foreground">{emptyMessage}</div>;
+    return (
+      <div className={`grid gap-4 ${leading ? "lg:grid-cols-[240px_minmax(0,1fr)]" : ""}`}>
+        {leading ? <div className="self-start">{leading}</div> : null}
+        <div className="py-16 text-center text-muted-foreground">{emptyMessage}</div>
+      </div>
+    );
   }
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+      <div className={`grid items-start ${columnsClassName} [grid-auto-flow:dense]`}>
+        {leading ? <div className="row-span-2 self-stretch">{leading}</div> : null}
         {products.map((p) => (
           <ProductCard key={p.id} product={p} />
         ))}

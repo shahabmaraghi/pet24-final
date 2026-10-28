@@ -146,40 +146,50 @@ export function SiteHeader() {
             </Button>
           </div>
         </div>
-        <div className="mx-auto flex max-w-[1280px] items-center gap-4 px-6 pb-3.5">
-          <nav className="hidden min-w-0 flex-1 gap-2 overflow-x-auto md:flex">
+        <div className="mx-auto hidden max-w-[1280px] flex-col gap-2.5 px-6 pb-3.5 md:flex">
+          <nav className="flex flex-wrap items-center gap-1.5">
             {categories.map((cat) => {
               const active = pathname === `/category/${cat.id}`;
               return (
                 <Link
                   key={cat.id}
                   href={`/category/${cat.id}`}
-                  className={`whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-semibold transition-colors ${active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"}`}
+                  className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-[13px] font-semibold transition-colors ${
+                    active
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-[var(--search-surface)] text-foreground hover:bg-accent"
+                  }`}
                 >
+                  <span
+                    className={`flex h-6 w-6 items-center justify-center rounded-lg ${active ? "bg-white/15" : ""}`}
+                    style={active ? undefined : { background: cat.tint }}
+                  >
+                    <CategoryIcon id={cat.id} size={14} />
+                  </span>
                   {cat.name}
                 </Link>
               );
             })}
           </nav>
-          <div className="hidden shrink-0 items-center gap-5 border-r pr-4 md:flex">
-            <Link href="/pets" className={`flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold ${pathname === "/pets" || pathname.startsWith("/pets/") ? "text-primary" : "text-muted-foreground hover:text-primary"}`}>
-              <PawPrint className="h-4 w-4" strokeWidth={1.7} />
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t pt-2.5">
+            <Link href="/pets" className={`inline-flex items-center gap-1.5 text-[13px] font-semibold ${pathname === "/pets" || pathname.startsWith("/pets/") ? "text-primary" : "text-muted-foreground hover:text-primary"}`}>
+              <PawPrint className="h-3.5 w-3.5" strokeWidth={1.7} />
               پروفایل‌ها
             </Link>
-            <Link href="/vets" className={`flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold ${pathname === "/vets" || pathname.startsWith("/vets/") ? "text-primary" : "text-muted-foreground hover:text-primary"}`}>
-              <Stethoscope className="h-4 w-4" strokeWidth={1.7} />
+            <Link href="/vets" className={`inline-flex items-center gap-1.5 text-[13px] font-semibold ${pathname === "/vets" || pathname.startsWith("/vets/") ? "text-primary" : "text-muted-foreground hover:text-primary"}`}>
+              <Stethoscope className="h-3.5 w-3.5" strokeWidth={1.7} />
               دامپزشکان
             </Link>
-            <Link href="/rehoming" className={`flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold ${pathname === "/rehoming" || pathname.startsWith("/rehoming/") ? "text-primary" : "text-muted-foreground hover:text-primary"}`}>
-              <HeartHandshake className="h-4 w-4" strokeWidth={1.7} />
+            <Link href="/rehoming" className={`inline-flex items-center gap-1.5 text-[13px] font-semibold ${pathname === "/rehoming" || pathname.startsWith("/rehoming/") ? "text-primary" : "text-muted-foreground hover:text-primary"}`}>
+              <HeartHandshake className="h-3.5 w-3.5" strokeWidth={1.7} />
               واگذاری
             </Link>
-            <Link href="/discounts" className="flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold text-[var(--sale)]">
-              <Tag className="h-4 w-4" strokeWidth={1.6} />
+            <Link href="/discounts" className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[var(--sale)]">
+              <Tag className="h-3.5 w-3.5" strokeWidth={1.6} />
               تخفیف‌ها
             </Link>
-            <Link href="/blog" className="whitespace-nowrap text-sm font-semibold text-muted-foreground hover:text-primary">بلاگ</Link>
-            <Link href="/about" className="whitespace-nowrap text-sm font-semibold text-muted-foreground hover:text-primary">درباره ما</Link>
+            <Link href="/blog" className="text-[13px] font-semibold text-muted-foreground hover:text-primary">بلاگ</Link>
+            <Link href="/about" className="text-[13px] font-semibold text-muted-foreground hover:text-primary">درباره ما</Link>
           </div>
         </div>
       </header>
